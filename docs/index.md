@@ -2,13 +2,14 @@
 
 ## Users
 
-1. [README quick start](../README.md)
-2. [Getting started vignette](../vignettes/getting-started.Rmd)
-3. [Table conformance](../vignettes/table-conformance.Rmd)
-4. [Response validation and follow-up](../vignettes/response-followup.Rmd)
-5. [Artifact I/O](../vignettes/artifact-io.Rmd)
-6. [CLI reference](cli.md)
-7. [Troubleshooting](troubleshooting.md)
+1. [中文快速上手（推荐）](../vignettes/quickstart.Rmd)
+2. [README quick start](../README.md)
+3. [Getting started vignette](../vignettes/getting-started.Rmd)
+4. [Table conformance](../vignettes/table-conformance.Rmd)
+5. [Response validation and follow-up](../vignettes/response-followup.Rmd)
+6. [Artifact I/O](../vignettes/artifact-io.Rmd)
+7. [CLI reference](cli.md)
+8. [Troubleshooting](troubleshooting.md)
 
 ## Adapter authors and implementers
 

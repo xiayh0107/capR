@@ -1,0 +1,482 @@
+---
+title: "capR 快速上手"
+subtitle: "把 R 对象变成可安全交给 AI 的证据包"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 快速上手}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7
+)
+```
+
+## capR 是什么 {-}
+
+可以把 capR 理解成一个 **"R 对象 -> 可安全交给 AI 的证据包" 编译器**。
+它本身不调用 OpenAI、Claude 或其他模型，而是负责把 R 对象在预算约束下编译成
+受控文本 (Digest)，并校验模型返回的字段引用是否可信：
+
+```text
+R 对象
+  ↓ 受预算约束的 Digest
+  ↓ 交给模型阅读
+  ↓ 模型返回带字段引用的结构化响应
+  ↓ capR 校验证据引用
+  ↓ Gate 决定是否允许读取更多字段
+  ↓ 生成 Patch，扩充原始 Digest
+```
+
+capR v1.0 的稳定范围是 **CAP-Digest v1.0 L0–L3 的 table source family**，
+正式支持 `data.frame`，并可选支持 `tbl_df` 与 `data.table` 宿主表示。
+
+> 本文档所有代码块都可以在已安装 capR 的 R 会话中直接运行。下面我们在文档内
+> 用 `stopifnot()` 做最小断言，让 knit 时就能看到结果是否正确。
+
+## 准备
+
+capR v1.0.0 要求 R >= 4.1.0，核心依赖为 `digest` 和 `jsonlite`。
+GitHub Release 是 v1.0 的正式发布渠道，目前不是 CRAN 包：
+
+```r
+install.packages("pak")
+pak::pak("xiayh0107/capR@capR-v1.0.0")
+```
+
+加载：
+
+```{r}
+library(capR)
+
+# 确认 vendored CAP-Digest 资源就绪
+cap_vendor_info()
+cap_verify_vendor()$ok
+```
+
+## 最简单的使用：把 data.frame 变成 Digest
+
+```{r}
+orders <- data.frame(
+  order_id = c("A001", "A002"),
+  amount = c(12.5, 19),
+  api_token = c("sk_test_123", "sk_test_456"),
+  check.names = FALSE
+)
+
+digest <- cap_digest(
+  orders,
+  budget = 500,
+  label = "orders"
+)
+```
+
+查看概览：
+
+```{r}
+print(digest)
+```
+
+查看真正交给模型的受控文本：
+
+```{r}
+cat(digest$text)
+```
+
+查看结构化摘要：
+
+```{r}
+str(summary(digest))
+```
+
+### 敏感字段会被自动遮罩
+
+`api_token` 属于敏感字段名，其值在渲染前会被遮罩，**不会**以原文进入 `digest$text`：
+
+```{r}
+stopifnot(
+  !grepl("sk_test_123", digest$text, fixed = TRUE),
+  !grepl("sk_test_456", digest$text, fixed = TRUE)
+)
+```
+
+## Digest 里有什么
+
+```{r}
+names(digest)
+```
+
+重要部分：
+
+| 元素 | 含义 |
+| --- | --- |
+| `text` | 给模型阅读的受控文本 |
+| `manifest` | 机器可读的字段清单与执行证据 |
+| `source` | SourceRef（来源描述） |
+| `fingerprint` | 源对象的新鲜度锚点 |
+| `catalog` | FieldCatalog（字段目录） |
+| `plan` | 哪些字段被选择 / 拒绝及原因 |
+| `caveats` | 渲染时产生的告警（如脱敏） |
+| `provenance` | capR adapter 解析信息 |
+| `adapter_pin` | 后续 follow-up 必须继续使用的 adapter 身份 |
+
+### 查看已选择字段
+
+```{r}
+selected_fields <- vapply(
+  Filter(
+    function(row) isTRUE(row$selected),
+    digest$manifest$fields
+  ),
+  `[[`,
+  character(1),
+  "fieldId"
+)
+selected_fields
+```
+
+### 查看未选择字段及原因
+
+capR 不只记录"模型看到了什么"，还记录"模型没有看到什么，以及为什么没有看到"：
+
+```{r}
+rejected <- Filter(
+  function(row) !isTRUE(row$selected),
+  digest$manifest$fields
+)
+
+lapply(rejected, function(row) {
+  list(
+    field_id = row$fieldId,
+    reason = row$rejectedReason,
+    timing = row$timing,
+    estimated_cost = row$estimatedCost
+  )
+})
+```
+
+## 用 question 调整字段选择
+
+可以把当前任务告诉 planner，用于确定性的 intent adjustment：
+不会让模型直接访问对象，也不会绕过 policy。
+
+```{r}
+digest_q <- cap_digest(
+  orders,
+  question = "判断表格结构、字段类型和是否存在敏感信息",
+  budget = 500,
+  label = "orders"
+)
+```
+
+`question` 会传入 planner，字段候选的 `intentAdjustment` 会记录在 plan 中：
+
+> 下面的 `artifact$plan` 用于诊断和解释本次选择，不属于 v1.0
+> 公共 API 的兼容性承诺。生产代码应优先依赖公开函数和 canonical artifacts。
+
+```{r}
+lapply(digest_q$artifact$plan$candidates, function(x) {
+  x[c(
+    "fieldId", "level", "selected",
+    "rejectedReason", "estimatedCost", "intentAdjustment"
+  )]
+})
+```
+
+## 接入模型：校验结构化响应
+
+capR 与模型供应商解耦。你只需要把 `digest$text` 发给你的模型客户端，
+并要求模型返回如下结构（R list 形式）：
+
+```{r}
+response <- list(
+  claims = list(
+    list(
+      id = "claim-1",
+      text = "The table has two rows and three columns.",
+      evidence = list("f1:table@shape#base")
+    )
+  ),
+  evidence = list(),
+  warnings = list(),
+  requests = list()
+)
+```
+
+然后校验：
+
+```{r}
+validation <- cap_validate_response(digest, response)
+
+validation$ok
+validation$errors
+```
+
+capR 会检查：顶层结构是否正确、claim 是否含 `id/text/evidence`、
+evidence field ID 是否存在、是否是 selected field、是否真的出现在 digest text 中、
+request field 是否存在。
+
+> `response` 可以是 R list、JSON 字符串或 JSON 文件路径。
+> `cap_validate_response()` 返回 `cap.validation_result.v1`，并明确区分
+> unknown / rejected / missing-from-text evidence。
+
+### 一次会拒绝证据的校验演示
+
+下面引用一个**未被 selected** 的字段，校验会失败并给出明确原因：
+
+```{r}
+bad_response <- list(
+  claims = list(
+    list(
+      id = "claim-bad",
+      text = "I can see sample rows.",
+      evidence = list("f1:table@sample#k10")  # interactive, not selected
+    )
+  ),
+  evidence = list(),
+  warnings = list(),
+  requests = list()
+)
+
+bad_validation <- cap_validate_response(digest, bad_response)
+bad_validation$ok
+bad_validation$errors
+```
+
+## Follow-up：模型请求更多字段
+
+初始 Digest 不会把所有内容都发给模型。例如 sample rows 通常是 `interactive`
+字段，需要模型请求、再经过 Gate。
+
+### 第一步：设置 follow-up policy
+
+```{r}
+policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = c("local_cheap", "local_scan"),
+  allow_followup = TRUE
+)
+print(policy)
+```
+
+默认 policy：远程访问、凭据访问、structural fallback 默认关闭，
+未知和 unsafe execution 默认拒绝。
+
+### 第二步：创建初始 Digest
+
+```{r}
+digest_f <- cap_digest(
+  orders,
+  budget = 500,
+  policy = policy,
+  label = "orders"
+)
+```
+
+### 第三步：模型请求 sample 字段
+
+```{r}
+response_f <- list(
+  claims = list(
+    list(
+      id = "claim-1",
+      text = "Two rows and three columns.",
+      evidence = list("f1:table@shape#base")
+    )
+  ),
+  evidence = list(),
+  warnings = list(),
+  requests = list(
+    list(
+      fieldId = "f1:table@sample#k10",
+      level = 1L,
+      budget = 300L,
+      reason = "Need bounded sample rows."
+    )
+  )
+)
+```
+
+### 第四步：校验模型响应
+
+```{r}
+validation_f <- cap_validate_response(digest_f, response_f, policy)
+stopifnot(validation_f$ok)
+validation_f$ok
+```
+
+### 第五步：Gate 决策
+
+Gate 是纯决策步骤：**不读取额外数据，也不执行 extractor**。它会检查
+validation 是否通过、follow-up 是否启用、source fingerprint 是否变化、
+adapter pin 是否兼容、字段是否存在 / 是否已 selected / 是否 interactive、
+level 是否有效、execution class 是否允许、follow-up 预算是否足够。
+
+```{r}
+gate <- cap_gate(digest_f, validation_f, policy)
+
+gate$overallDecision
+str(gate$requests, max.level = 3)
+```
+
+### 第六步：生成并应用 Patch
+
+只有 gate approved 时，才用 `cap_patch()` 在受信任宿主代码里 materialize
+获批字段，并重新检查 fingerprint 与 adapter pin：
+
+```{r}
+patch <- cap_patch(
+  digest_f,
+  gate,
+  orders,
+  policy = policy
+)
+
+extended_digest <- cap_apply_patch(digest_f, patch)
+
+cat(extended_digest$text)
+```
+
+可以看到 `f1:table@sample#k10` 已被追加到受控文本中，且 `api_token` 的
+sample 值仍然是遮罩后的。再断言一下：
+
+```{r}
+stopifnot(
+  grepl('<field id="f1:table@sample#k10"', extended_digest$text, fixed = TRUE),
+  !grepl("sk_test_123", extended_digest$text, fixed = TRUE),
+  !grepl("sk_test_456", extended_digest$text, fixed = TRUE)
+)
+```
+
+## 保存和重新加载工件
+
+Digest 可以落盘成 canonical CAP artifacts，方便"R 会话生成 -> 另一个 Agent /
+服务读取 -> 返回 response -> R 再做 validation/gate/patch"的跨进程协作。
+
+```{r}
+artifact_dir <- tempfile("cap-artifacts-orders")
+cap_write_artifacts(digest_f, artifact_dir)
+
+list.files(artifact_dir)
+```
+
+通常会有四个文件：`digest.txt`、`digest.json`、`manifest.json` 三个 canonical
+CAP artifacts，以及 `resolution.capr.json` 这个可选 capR sidecar
+（不会嵌入关闭的 CAP schema）。
+
+重新加载并核对一致性：
+
+```{r}
+reloaded <- cap_read_artifacts(artifact_dir)
+
+stopifnot(
+  identical(reloaded$text, digest_f$text),
+  identical(
+    capr_canonical_json(reloaded$manifest),
+    capr_canonical_json(digest_f$manifest)
+  )
+)
+identical(reloaded$text, digest_f$text)
+```
+
+## 验证安装和稳定合规路径
+
+运行完整离线 fixtures，确认 vendored CAP-Digest 资源与本包实现一致：
+
+```{r}
+report <- cap_run_fixtures()
+
+report$ok
+report$level
+vapply(report$checks, `[[`, logical(1), "ok")
+```
+
+正式稳定安装预期：
+
+```{r}
+stopifnot(
+  report$ok,
+  report$level == 3L
+)
+```
+
+## 命令行使用
+
+capR 还附带一个 `exec/capr` CLI 脚本，可在不打开 R 会话的情况下生成 Digest、
+校验响应、运行 fixtures。先找到脚本路径：
+
+```{r}
+capr_path <- system.file("exec", "capr", package = "capR")
+stopifnot(file.exists(capr_path))
+capr_path
+```
+
+常见用法（这里仅作展示，不在 vignette 里真正调用 shell）：
+
+```sh
+# 帮助
+Rscript /path/to/capr help
+
+# 从 CSV 生成 Digest
+Rscript /path/to/capr digest \
+  --input orders.csv --output artifacts --label orders --budget 500
+
+# 校验模型 JSON
+Rscript /path/to/capr validate-response \
+  --digest artifacts --response response.json --output validation
+
+# 运行完整 fixture suite
+Rscript /path/to/capr run-fixtures --output capr-conformance.json
+```
+
+CLI 还支持 `gate`、`patch`、`inspect`、`version`。它只接受 CSV 和 JSON，
+**不执行 R 源代码、不反序列化任意 R 对象、不开启 fallback、不访问远程或凭据**。
+
+## 最推荐的实际使用模式
+
+对于一个 R 科研 / 数据分析 Agent，建议采用下面这条流水线：
+
+```text
+1. 用户在 R 中产生对象
+2. cap_digest(object, question, budget)
+3. 只把 digest$text 发给模型
+4. 模型返回 claims + evidence + warnings + requests
+5. cap_validate_response()
+6. 若模型请求更多字段：cap_gate()
+7. 只有 gate approved：cap_patch()
+8. cap_apply_patch()
+9. 再把扩充后的 digest 交给模型
+10. 保存 digest / manifest / validation / gate / patch
+```
+
+这与"把整个 R 对象 dump 给模型"有本质区别：
+
+- 模型只能看到已披露字段；
+- 每个结论可以引用 field ID；
+- 未披露字段不能被当作证据；
+- 模型只能请求，不能自行调用 extractor；
+- 敏感值先脱敏再渲染；
+- follow-up 会检查预算、fingerprint 和 adapter pin；
+- 整个过程可以写成可审计工件。
+
+最适合先落地的第一个真实应用，是把 capR 接到现有 R 分析助手中：
+**先生成 Digest，再让模型基于 Digest 写解释或提出下一步分析建议，
+而不是让模型直接读取完整对象。**
+
+### 延伸阅读
+
+- `vignette("getting-started", package = "capR")`：最小入门路径。
+- `vignette("response-followup", package = "capR")`：响应校验与 follow-up 细节。
+- `vignette("artifact-io", package = "capR")`：canonical artifacts 的保存与读取。
+- `vignette("cli-use", package = "capR")`：CLI 的完整命令说明。
+- `vignette("table-conformance", package = "capR")`：稳定合规范围与证据。

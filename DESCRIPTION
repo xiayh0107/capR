@@ -1,7 +1,7 @@
 Package: capR
 Type: Package
 Title: R-Hosted CAP-Digest Runtime
-Version: 1.0.0
+Version: 1.0.1.9000
 Authors@R: person("Yihui", "Xia", email = "xiayh0107@users.noreply.github.com", role = c("aut", "cre"))
 Description: Builds deterministic, policy-bounded CAP-Digest artifacts from R
     objects through an open adapter runtime. The initial stable conformance

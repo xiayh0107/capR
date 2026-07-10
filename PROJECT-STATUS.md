@@ -15,6 +15,7 @@
 | Interoperability | implemented | Independent standard-library Python structural harness |
 | CLI and docs | implemented | Public-API wrappers, vignettes, compatibility/security docs |
 | Stable release | published | Committed evidence, exact-commit CI, annotated tag, and GitHub Release |
+| Development | 1.0.1.9000 | Executable Chinese quickstart and documentation maintenance |
 
 ## Published release claim
 
