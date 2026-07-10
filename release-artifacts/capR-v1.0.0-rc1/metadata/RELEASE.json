@@ -3,7 +3,7 @@
   "release": "capR-v1.0.0-rc1",
   "caprVersion": "1.0.0.9000",
   "status": "release-candidate",
-  "sourceRevision": "992156fbe3ced475c01c3400ea6d5bb63d183efa",
+  "sourceRevision": "7e7230e54b7e1120cb45b7fc9806499d267e86c6",
   "capDigest": {
     "version": "1.0.0",
     "tag": "cap-digest-v1.0.0",

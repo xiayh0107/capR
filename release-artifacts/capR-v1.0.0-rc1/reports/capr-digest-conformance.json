@@ -78,7 +78,7 @@
     },
     "language": "R",
     "name": "capR",
-    "revision": "992156fbe3ced475c01c3400ea6d5bb63d183efa",
+    "revision": "7e7230e54b7e1120cb45b7fc9806499d267e86c6",
     "separatedAdapterScopes": {
       "community": "compatibility only; no inherited conformance",
       "experimental": "no stable claim",

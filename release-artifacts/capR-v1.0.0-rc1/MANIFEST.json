@@ -2,7 +2,7 @@
   "schema": "capr.release_manifest.v1",
   "release": "capR-v1.0.0-rc1",
   "caprVersion": "1.0.0.9000",
-  "sourceRevision": "992156fbe3ced475c01c3400ea6d5bb63d183efa",
+  "sourceRevision": "7e7230e54b7e1120cb45b7fc9806499d267e86c6",
   "capDigestTag": "cap-digest-v1.0.0",
   "capDigestCommit": "d7890d4449107a88faed0e0c653d3751b57575f2",
   "hashAlgorithm": "sha256",
@@ -11,7 +11,7 @@
     {
       "path": "MANIFEST.md",
       "bytes": 1624,
-      "sha256": "71065cc7ae1bc5b1d6fa11dee3c66c5fc4713802b5f9d156ec5b2b7d42da132d"
+      "sha256": "d47ade1ff384b0062360e6e648b731e4bf29f890ef1e5bd98fe99fbb8b7a3378"
     },
     {
       "path": "README.md",
@@ -36,7 +36,7 @@
     {
       "path": "metadata/RELEASE.json",
       "bytes": 889,
-      "sha256": "431212a5abb3c761946d30d0ae9ef42cb17a29047cd4d5d6048b0ea98f1999fe"
+      "sha256": "310c66c1bba59aa6759e95c2359bf17091b829d054dc68d6e2819a7e676f8eb0"
     },
     {
       "path": "metadata/environment.json",
@@ -50,13 +50,13 @@
     },
     {
       "path": "package/capR_1.0.0.9000.tar.gz",
-      "bytes": 112594,
-      "sha256": "09837b85e83ecda69bf15ea2f3d63ac2f5b409e14c1a16443f59d4f6bee1205e"
+      "bytes": 113723,
+      "sha256": "5a4d954be1763b60bbdb2847c9d47bc6e3023fbdbac70a0e02e05eede5c0ae1b"
     },
     {
       "path": "reports/capr-digest-conformance.json",
-      "bytes": 5214,
-      "sha256": "e7d0b75c9828abe7b41d7c0e00ccb3f27fa47d17ca39d7b7a5f48c32b945a354"
+      "bytes": 5215,
+      "sha256": "dfeded254aeff077442a271621aece4bfd95746c9f7298586e4ed0a6ac82fa96"
     },
     {
       "path": "reports/capr-interop-comparison.json",
