@@ -43,6 +43,7 @@ run <- function(command, arguments, stdout = TRUE, stderr = TRUE,
   result
 }
 `%||%` <- function(x, y) if (is.null(x)) y else x
+r_string <- function(x) encodeString(x, quote = '"')
 
 dirty <- run(
   "git",
@@ -101,7 +102,11 @@ library_root <- file.path(workspace, "library")
 dir.create(library_root)
 run(
   file.path(R.home("bin"), "R"),
-  c("CMD", "INSTALL", "--library", shQuote(library_root), shQuote(archive_source))
+  c(
+    "CMD", "INSTALL",
+    paste0("--library=", shQuote(library_root)),
+    shQuote(archive_source)
+  )
 )
 driver <- file.path(workspace, "release-driver.R")
 conformance_path <- file.path(
@@ -109,16 +114,16 @@ conformance_path <- file.path(
 )
 session_path <- file.path(stage, "metadata", "sessionInfo.txt")
 writeLines(c(
-  sprintf(".libPaths(c(%s, .libPaths()))", dQuote(library_root)),
+  sprintf(".libPaths(c(%s, .libPaths()))", r_string(library_root)),
   "library(capR)",
   sprintf(
     "report <- cap_run_fixtures(report = %s)",
-    dQuote(conformance_path)
+    r_string(conformance_path)
   ),
   "if (!report$ok) quit(status = 1L)",
   sprintf(
     "writeLines(capture.output(sessionInfo()), %s, useBytes = TRUE)",
-    dQuote(session_path)
+    r_string(session_path)
   )
 ), driver, useBytes = TRUE)
 run(file.path(R.home("bin"), "Rscript"), shQuote(driver))
@@ -397,4 +402,3 @@ if (!file.rename(stage, output)) {
 }
 if (!is.null(backup)) unlink(backup, recursive = TRUE)
 message(normalizePath(output, mustWork = TRUE))
-
