@@ -1,0 +1,7 @@
+{
+  "schema": "capr.release_environment.v1",
+  "r": "R version 4.5.2 (2025-10-31)",
+  "platform": "aarch64-apple-darwin20",
+  "python": "Python 3.13.1",
+  "schemaValidator": "python-jsonschema 4.26.0 / Draft 2020-12"
+}

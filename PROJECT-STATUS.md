@@ -14,9 +14,9 @@
 | Schema | implemented | Strict Draft 2020-12 development/release harness |
 | Interoperability | implemented | Independent standard-library Python structural harness |
 | CLI and docs | implemented | Public-API wrappers, vignettes, compatibility/security docs |
-| Stable release | release candidate | Final committed artifacts, CI, tag, and GitHub Release pending |
+| Stable release | published | Committed evidence, exact-commit CI, annotated tag, and GitHub Release |
 
-## Release claim under review
+## Published release claim
 
 ```text
 Implementation: capR 1.0.0
@@ -31,8 +31,9 @@ This claim excludes remote/credentialed extraction, CAP-Core semantics,
 arbitrary-object conformance, and scientific correctness. Community,
 experimental, and fallback adapters remain separately labeled.
 
-## Active release gate
+## Stable release evidence
 
-Generate and commit `release-artifacts/capR-v1.0.0/`, validate its manifest,
-pass every required GitHub check on the exact commit, then create the annotated
-`capR-v1.0.0` tag and matching GitHub Release assets.
+The committed `release-artifacts/capR-v1.0.0/` directory contains the source
+package, fixture and interoperability reports, environment metadata, and
+checksummed manifests. The annotated `capR-v1.0.0` tag and matching GitHub
+Release assets identify the exact stable evidence commit.
