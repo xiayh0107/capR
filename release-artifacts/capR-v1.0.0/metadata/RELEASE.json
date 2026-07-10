@@ -1,0 +1,33 @@
+{
+  "schema": "capr.release_metadata.v1",
+  "release": "capR-v1.0.0",
+  "caprVersion": "1.0.0",
+  "status": "stable",
+  "sourceRevision": "9fc2ba74edcd316f5700d72906069fb0f5d154a5",
+  "capDigest": {
+    "version": "1.0.0",
+    "tag": "cap-digest-v1.0.0",
+    "commit": "d7890d4449107a88faed0e0c653d3751b57575f2"
+  },
+  "claimedLevel": 3,
+  "fixtureScope": [
+    "basic-table",
+    "digest-text-negative",
+    "security-adversarial",
+    "followup-basic",
+    "pack-table-basic"
+  ],
+  "sourceFamily": "table",
+  "stableHostAdapters": [
+    "data.frame",
+    "tbl_df",
+    "data.table"
+  ],
+  "unsupported": [
+    "remote or credentialed extraction",
+    "CAP-Core runtime or object semantics",
+    "arbitrary R object conformance",
+    "scientific or statistical correctness guarantees"
+  ],
+  "generationCommand": "Rscript tools/release-artifacts.R capR-v1.0.0"
+}

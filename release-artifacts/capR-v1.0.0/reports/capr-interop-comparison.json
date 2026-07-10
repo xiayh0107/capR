@@ -1,0 +1,16 @@
+{
+  "claim": "fixture-scoped CAP-Digest v1.0 interoperability evidence",
+  "comparisonImplementation": "capR.independent_structural_python",
+  "disagreements": [],
+  "missingFixtures": [],
+  "ok": true,
+  "primaryImplementation": "capR.primary_conformance",
+  "schema": "cap.digest.interop_comparison.v1",
+  "sharedFixtures": [
+    "fixtures/basic-table",
+    "fixtures/digest-text-negative",
+    "fixtures/followup-basic",
+    "fixtures/pack-table-basic",
+    "fixtures/security-adversarial"
+  ]
+}

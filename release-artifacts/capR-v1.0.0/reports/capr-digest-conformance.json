@@ -1,0 +1,98 @@
+{
+  "capVersion": "CAP-Digest v1.0.0",
+  "checks": [
+    {
+      "name": "fixtures/basic-table",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/digest-text-negative",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/security-adversarial",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/followup-basic",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/pack-table-basic",
+      "ok": true,
+      "problems": []
+    }
+  ],
+  "implementation": {
+    "capDigest": {
+      "commit": "d7890d4449107a88faed0e0c653d3751b57575f2",
+      "tag": "cap-digest-v1.0.0",
+      "version": "1.0.0"
+    },
+    "durationPolicy": "normalized to zero for reproducible fixture evidence",
+    "durationsMs": {
+      "fixtures/basic-table": 0,
+      "fixtures/digest-text-negative": 0,
+      "fixtures/followup-basic": 0,
+      "fixtures/pack-table-basic": 0,
+      "fixtures/security-adversarial": 0
+    },
+    "environment": {
+      "platform": "aarch64-apple-darwin20",
+      "rVersion": "R version 4.5.2 (2025-10-31)"
+    },
+    "fixtureChecksums": {
+      "fixtures/basic-table/expected-digest.txt": "dc76c62ec48124ba167c8fb5686e226b73a2d58cc19be32f643824adcccdb320",
+      "fixtures/basic-table/expected-manifest.json": "ea33dfeb27fcd909d35f701ddd2d29e005ac3f74301839813221e93a28ad8831",
+      "fixtures/basic-table/expected-validation.json": "858e8dd8964a5d0e3f7119590779c318c49ef8a962b8295d23dbc0566cbd0028",
+      "fixtures/basic-table/negative-validation.json": "9ac224926b6475bdfa98ccab802a9f5731623cef475a03043b801e28ebc779bb",
+      "fixtures/basic-table/policy.json": "1fbc467df33de51f6dd0b63f106df4bfae27a74325aa2dc14aaf721b0b8e37f7",
+      "fixtures/basic-table/source.json": "2fc1f862de9ac5e96d6f695660257a0949808e539257af09d6b8c3c5a146c69c",
+      "fixtures/digest-text-negative/README.md": "be384828bf1ef404c8ad65830796de530c83f3fa2caaf9c2321795906cc1f1b2",
+      "fixtures/digest-text-negative/duplicate-field-id.txt": "9f2f5289ba8c6b6a0e56724b98eebc6b487e643a6d2353a307ce0aa6a6e7b89b",
+      "fixtures/digest-text-negative/invalid-field-id.txt": "41edc52ec064b95ef6eca60b31c1b04183fe8f98c227f2ed4971ef72c62a4eb8",
+      "fixtures/digest-text-negative/manifest-missing.txt": "a1427a689f32918b4c2da3a40557d32861f5a4cba79ddc95d9ce3b503481626b",
+      "fixtures/digest-text-negative/unclosed-data-fence.txt": "1624e445c6218bca0f051b90df1b35edd26887c9b62d78b59c8a3d99cddc8f5a",
+      "fixtures/digest-text-negative/unknown-text-field.txt": "6bde34813b7c04446b204941721a8366ff4e48bf7aa4bc6654d3bb5ac520ee46",
+      "fixtures/followup-basic/README.md": "20964d704da37f7862b9dce642d5fb23c2a17a7399809fe2568f293aa6841cb5",
+      "fixtures/followup-basic/expected-gate-approved.json": "8847ed60690d94420d848a76bde833c440a07c17300237eb2f76c130c319b0f7",
+      "fixtures/followup-basic/expected-gate-stale.json": "2dc0834258a713d3718b7d079e64842372b75f2a3e2757481fad1909bc193a51",
+      "fixtures/followup-basic/expected-gate.json": "a6c3add50b0be851124a621dd59d5d9e83665155f572c350a0c14085e018d3cf",
+      "fixtures/followup-basic/expected-patch.json": "a71fee771a788d1868c4eafd8ef7cd3269fbe33ed0d41d10638904a55394966b",
+      "fixtures/followup-basic/expected-validation-approved.json": "0ac8ba5b37ef3808605017aa8a50add363240158594b2eb57b5f0090563f3210",
+      "fixtures/followup-basic/policy.json": "6314796406182cf93e94bce170627229197d629724efb6b6f6f3871abe233d7e",
+      "fixtures/followup-basic/request-approved.json": "e35a876049a6e6aba074550f77d55a30667b6689ae9719e1fe50f5fa744c487c",
+      "fixtures/followup-basic/response.json": "eddb0b904d04b2245238986d2dd7822aff2e04b81b15dc4441cdb2f3bd1e00ec",
+      "fixtures/followup-basic/source.json": "2800199ac7d8e45fcc089f57d44d2134889940c95c808f9d37351a739153842d",
+      "fixtures/pack-table-basic/README.md": "4944fb0a3b7cc912f529f7af33cc24539a851a98ab70e061bc536d8547bef237",
+      "fixtures/pack-table-basic/expected-pack-report.json": "520acf8c8e8d23abf95136dfc9c8c88f726054d05ade018bd4c29db12260158e",
+      "fixtures/pack-table-basic/expected-pack.json": "4948d14b4147480c0f785ede9a8ea80ad186c3f7f91236ef8098816a0ff1feb6",
+      "fixtures/security-adversarial/README.md": "0a9e163f298517b4de2d2aa7d9808ec2af755186eb37de7ef8c8e43596b01578",
+      "fixtures/security-adversarial/policy.json": "6561b1014880fcf2d2a9ebd40f3e213c62b6a760863504abcecdeda415eb5648",
+      "fixtures/security-adversarial/renderer-failure-manifest.json": "0f36ad8810e76c8aa4679213b210e1aa92c36f4bb0291d0945e701ab79971613",
+      "fixtures/security-adversarial/source.json": "cedba04c6639d19ad71c5cfcb447f95543cb2168ca0c6dfc525bbc9ba20f23d7"
+    },
+    "language": "R",
+    "name": "capR",
+    "revision": "9fc2ba74edcd316f5700d72906069fb0f5d154a5",
+    "separatedAdapterScopes": {
+      "community": "compatibility only; no inherited conformance",
+      "experimental": "no stable claim",
+      "fallback": "structural only; conformance none"
+    },
+    "stableHostAdapters": [
+      "data.frame",
+      "tbl_df",
+      "data.table"
+    ],
+    "stableSourceFamily": "table",
+    "version": "1.0.0"
+  },
+  "level": 3,
+  "ok": true,
+  "schema": "cap.conformance_report.v1"
+}
