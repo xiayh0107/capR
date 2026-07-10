@@ -12,7 +12,7 @@
   schemas, independent interoperability, table aliases, CLI.
 - [x] Phase 5 implementation: API classification, user/implementer/security
   documentation, reproducible release tooling.
-- [ ] Phase 5 publication: committed RC/stable evidence, exact-commit CI,
+- [x] Phase 5 publication: committed RC/stable evidence, exact-commit CI,
   annotated tags, GitHub Releases, issue closure.
 
 Detailed implementation requirements remain in
