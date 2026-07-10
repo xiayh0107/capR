@@ -105,11 +105,10 @@ if (!allow_untracked) {
     stdout = TRUE,
     stderr = FALSE
   )
-  tracked_relative <- sub(
-    paste0("^", gsub(
-      "([][{}()+*^$|\\?.])", "\\\\\1", relative_root
-    ), "/"),
-    "",
+  prefix <- paste0(relative_root, "/")
+  tracked_relative <- ifelse(
+    startsWith(tracked, prefix),
+    substring(tracked, nchar(prefix) + 1L),
     tracked
   )
   for (untracked in setdiff(
@@ -128,4 +127,3 @@ message(sprintf(
   manifest$release,
   length(expected)
 ))
-

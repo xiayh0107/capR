@@ -4,6 +4,7 @@
 .Rproj.user/
 *.Rcheck/
 capR_*.tar.gz
+!release-artifacts/**/package/capR_*.tar.gz
 lib/
 schema-artifacts/
 interop-artifacts/
