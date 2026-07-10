@@ -62,6 +62,7 @@ source_revision <- trimws(run(
 
 workspace <- tempfile("capr-release-")
 dir.create(workspace, recursive = TRUE)
+workspace <- normalizePath(workspace, mustWork = TRUE)
 on.exit(unlink(workspace, recursive = TRUE, force = TRUE), add = TRUE)
 stage <- file.path(workspace, release)
 dir.create(stage)
