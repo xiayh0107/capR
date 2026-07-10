@@ -136,7 +136,8 @@ def emitted_artifact_cases(paths: list[Path]) -> list[tuple[str, str, Any]]:
                 continue
             if schema_name.startswith("capr."):
                 continue
-            cases.append((str(path), schema_name, instance))
+            relative = path.name if root.is_file() else path.relative_to(root).as_posix()
+            cases.append((f"emitted/{relative}", schema_name, instance))
     return cases
 
 
