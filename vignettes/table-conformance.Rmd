@@ -21,11 +21,17 @@ verification <- cap_verify_vendor()
 report <- cap_run_fixtures()
 
 if (!report$ok) {
-  print(report)
   failed <- Filter(function(check) !check$ok, report$checks)
-  for (check in failed) {
-    message(check$name, ": ", paste(unlist(check$problems), collapse = "; "))
-  }
+  failures <- vapply(failed, function(check) {
+    paste0(
+      check$name, ": ",
+      paste(unlist(check$problems), collapse = "; ")
+    )
+  }, character(1))
+  stop(
+    paste("CAP-Digest conformance failed:", paste(failures, collapse = " | ")),
+    call. = FALSE
+  )
 }
 
 stopifnot(
