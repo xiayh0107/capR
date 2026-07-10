@@ -1,4 +1,7 @@
-# Adapter and Registry API Draft
+# Adapter and Registry API v1
+
+> Status: stable in capR v1.0. Adapter compatibility remains distinct from CAP
+> conformance.
 
 ## S3 bridge
 

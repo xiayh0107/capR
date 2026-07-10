@@ -1,0 +1,10 @@
+{
+  "budget": 500,
+  "followupBudget": 340,
+  "tokenizer": "heuristic_v1",
+  "fingerprint": "structure_v1:orders-1000x4",
+  "allowedExec": ["local_cheap", "local_scan"],
+  "redaction": {
+    "sensitiveNamePatterns": ["password", "secret", "token", "api_key", "credential", "private_key"]
+  }
+}

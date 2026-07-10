@@ -1,6 +1,6 @@
-# Runtime API Draft
+# Runtime API v1
 
-> Status: design draft. Signatures may change before package bootstrap is accepted.
+> Status: stable in capR v1.0. See [public API compatibility](public-api-v1.md).
 
 ## User-facing orchestration
 
@@ -19,7 +19,7 @@ cap_digest(
 
 `cap_digest()` is an orchestration function, not the main S3 generic. It resolves one adapter and runs the class-independent pipeline.
 
-Planned supporting functions:
+Stable supporting functions:
 
 ```r
 cap_validate_response(digest, response, policy = cap_policy(), ...)
@@ -49,6 +49,7 @@ manifest <- cap_build_manifest(source, catalog, plan, results)
 cap_policy(
   max_budget = 800L,
   max_followup_budget = 300L,
+  max_field_seconds = 5,
   allow_exec = c("local_cheap", "local_scan"),
   allow_remote = FALSE,
   allow_credentials = FALSE,
@@ -58,7 +59,7 @@ cap_policy(
 )
 ```
 
-Exact defaults will be fixture- and security-reviewed before implementation.
+These defaults are fixture- and security-reviewed for v1.0.
 
 ## Return objects
 

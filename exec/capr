@@ -1,0 +1,186 @@
+#!/usr/bin/env Rscript
+
+suppressPackageStartupMessages(library(capR))
+
+usage <- function() {
+  cat(paste(
+    "capr - capR v1.0 table fixture-scoped CAP-Digest CLI",
+    "",
+    "Commands:",
+    "  digest            --input TABLE.csv --output DIR [--label LABEL] [--budget N]",
+    "  validate-response --digest DIR --response RESPONSE.json --output DIR",
+    "  gate              --digest DIR --validation VALIDATION.json --output DIR",
+    "                    [--fingerprint VALUE] [--followup-budget N]",
+    "  patch             --digest DIR --gate GATE.json --source TABLE.csv --output DIR",
+    "  run-fixtures       --output REPORT.json",
+    "  inspect            --digest DIR",
+    "  version",
+    "  help",
+    "",
+    "Exit codes: 0 success; 1 runtime failure; 2 usage/input error;",
+    "3 valid command result that denies validation or gate approval.",
+    "",
+    "Stable scope: CAP-Digest v1.0 L0-L3 published fixtures, table family.",
+    "Unsupported: remote/credentialed extraction, arbitrary R evaluation,",
+    "CAP-Core semantics, arbitrary-object conformance, scientific correctness.",
+    sep = "\n"
+  ), "\n")
+}
+
+parse_options <- function(args) {
+  result <- list()
+  index <- 1L
+  while (index <= length(args)) {
+    key <- args[[index]]
+    if (!startsWith(key, "--") || index == length(args)) {
+      stop(sprintf("invalid option near %s", key), call. = FALSE)
+    }
+    result[[substring(key, 3L)]] <- args[[index + 1L]]
+    index <- index + 2L
+  }
+  result
+}
+
+required <- function(options, names) {
+  missing <- names[!names %in% names(options)]
+  if (length(missing)) {
+    stop(
+      sprintf("missing required option(s): %s", paste(missing, collapse = ", ")),
+      call. = FALSE
+    )
+  }
+}
+
+read_json <- function(path, class) {
+  value <- jsonlite::fromJSON(path, simplifyVector = FALSE)
+  structure(value, class = c(class, "list"))
+}
+
+emit <- function(value) {
+  cat(capr_canonical_json(unclass(value)), "\n", sep = "")
+}
+
+run <- function(args) {
+  command <- if (length(args)) args[[1L]] else "help"
+  if (command %in% c("help", "--help", "-h")) {
+    usage()
+    return(0L)
+  }
+  if (identical(command, "version")) {
+    cat(as.character(utils::packageVersion("capR")), "\n")
+    return(0L)
+  }
+  options <- parse_options(args[-1L])
+  if (identical(command, "digest")) {
+    required(options, c("input", "output"))
+    if (!grepl("\\.csv$", options$input, ignore.case = TRUE)) {
+      stop("digest input must be a CSV file", call. = FALSE)
+    }
+    source <- utils::read.csv(
+      options$input,
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
+    budget <- as.integer(options$budget %||% "800")
+    digest <- cap_digest(
+      source,
+      budget = budget,
+      label = options$label %||% basename(options$input)
+    )
+    cap_write_artifacts(digest, options$output)
+    emit(digest$artifact)
+    return(0L)
+  }
+  if (identical(command, "validate-response")) {
+    required(options, c("digest", "response", "output"))
+    digest <- cap_read_artifacts(options$digest)
+    validation <- cap_validate_response(digest, options$response)
+    cap_write_artifacts(validation, options$output)
+    emit(validation)
+    return(if (validation$ok) 0L else 3L)
+  }
+  if (identical(command, "gate")) {
+    required(options, c("digest", "validation", "output"))
+    digest <- cap_read_artifacts(options$digest)
+    validation <- read_json(
+      options$validation, "cap_validation_result"
+    )
+    followup <- as.integer(options[["followup-budget"]] %||% "300")
+    source <- if (!is.null(options$fingerprint)) {
+      list(fingerprint = options$fingerprint)
+    } else {
+      NULL
+    }
+    gate <- cap_gate(
+      digest,
+      validation,
+      policy = cap_policy(max_followup_budget = followup),
+      source = source
+    )
+    cap_write_artifacts(gate, options$output)
+    emit(gate)
+    return(if (gate$overallDecision %in% c(
+      "approved", "approved_with_changes"
+    )) 0L else 3L)
+  }
+  if (identical(command, "patch")) {
+    required(options, c("digest", "gate", "source", "output"))
+    if (!grepl("\\.csv$", options$source, ignore.case = TRUE)) {
+      stop("patch source must be a CSV file", call. = FALSE)
+    }
+    digest <- cap_read_artifacts(options$digest)
+    gate <- read_json(options$gate, "cap_gate_result")
+    source <- utils::read.csv(
+      options$source,
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
+    adapter <- cap_table_adapter()
+    digest$adapter <- adapter
+    digest$catalog <- adapter$lifecycle$field_catalog(source, list())
+    digest$adapter_pin <- cap_adapter_pin(adapter)
+    patch <- cap_patch(
+      digest,
+      gate,
+      source,
+      adapter = adapter
+    )
+    cap_write_artifacts(patch, options$output)
+    emit(patch)
+    return(0L)
+  }
+  if (identical(command, "run-fixtures")) {
+    required(options, "output")
+    report <- cap_run_fixtures(report = options$output)
+    emit(report)
+    return(if (report$ok) 0L else 3L)
+  }
+  if (identical(command, "inspect")) {
+    required(options, "digest")
+    emit(summary(cap_read_artifacts(options$digest)))
+    return(0L)
+  }
+  stop(sprintf("unknown command: %s", command), call. = FALSE)
+}
+
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
+status <- tryCatch(
+  run(commandArgs(trailingOnly = TRUE)),
+  error = function(error) {
+    payload <- list(
+      schema = "capr.cli_error.v1",
+      ok = FALSE,
+      class = class(error)[[1L]],
+      message = conditionMessage(error)
+    )
+    cat(
+      capr_canonical_json(payload),
+      "\n",
+      sep = "",
+      file = stderr()
+    )
+    2L
+  }
+)
+quit(status = status)

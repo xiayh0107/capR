@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.pack_conformance_report.v1.schema.json",
+  "title": "CAP-Digest Pack Conformance Report v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema", "pack", "packVersion", "status", "implementation", "checks"],
+  "properties": {
+    "schema": { "const": "cap.pack_conformance_report.v1" },
+    "pack": { "type": "string" },
+    "packVersion": { "type": "string" },
+    "status": { "enum": ["experimental", "draft", "active", "deprecated"] },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "passed", "issues"],
+        "properties": {
+          "name": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "issues": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

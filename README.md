@@ -1,57 +1,106 @@
 # capR
 
-> Status: documentation bootstrap · Runtime code not started · Last updated: 2026-07-10
+capR is an R-hosted implementation of **CAP-Digest v1.0 L0-L3** for the
+published v1.0 fixture suite and the **table** source family. It resolves one
+adapter, then runs one class-independent, policy-bounded pipeline.
 
-`capR` is the planned R-hosted implementation of CAP-Digest. The repository is organized documentation-first so that architecture, extension boundaries, conformance claims, and release evidence are reviewed before runtime code grows.
+The stable host representations are base `data.frame` plus optional
+`tbl_df` and `data.table`. Community, experimental, and structural fallback
+adapters do not inherit the stable table conformance claim.
 
-## Project position
+## Install
 
-The first stable implementation target is deliberately narrow:
-
-```text
-CAP-Digest v1.0
-+ R host integration
-+ table source family
-+ fixture-scoped conformance
+```r
+# install.packages("pak")
+pak::pak("xiayh0107/capR@capR-v1.0.0")
 ```
 
-The project is **not** initially a general AI framework, a CAP-Core runtime, or a claim that arbitrary R objects are CAP-Digest conformant.
+GitHub is the v1.0 publication target; CRAN publication is a separate future
+decision.
 
-The key implementation rule is:
+## Verified quick start
 
-> Resolve one source adapter, then run one class-independent digest pipeline.
+```r
+library(capR)
 
-This prevents the core package from becoming an endless collection of `cap_digest.<class>()` methods.
+orders <- data.frame(
+  order_id = c("A001", "A002"),
+  amount = c(12.5, 19),
+  api_token = c("sk_test_123", "sk_test_456"),
+  check.names = FALSE
+)
 
-## Documentation map
+digest <- cap_digest(orders, budget = 500, label = "orders")
+cat(digest$text)
+
+response <- list(
+  claims = list(list(
+    id = "shape",
+    text = "The table has two rows and three columns.",
+    evidence = list("f1:table@shape#base")
+  )),
+  evidence = list(),
+  warnings = list(),
+  requests = list()
+)
+validation <- cap_validate_response(digest, response)
+stopifnot(validation$ok)
+```
+
+No model provider, credentials, remote service, or network access is required.
+Sensitive-name values are redacted before rendering, source strings are
+escaped, failed fields remain explicit, and follow-up extraction requires a
+validated response plus host gate approval.
+
+## Offline evidence
+
+```r
+report <- cap_run_fixtures()
+stopifnot(report$ok, report$level == 3L)
+cap_verify_vendor()
+```
+
+The release evidence set contains the source package, conformance report,
+strict Draft 2020-12 schema report, independent structural interoperability
+report, comparison report, fixture summary, environment metadata, and
+checksummed manifests under `release-artifacts/capR-v1.0.0/`.
+
+## CLI
+
+```sh
+Rscript "$(Rscript -e 'cat(system.file("exec", "capr", package = "capR"))')" help
+Rscript /path/to/capr digest --input orders.csv --output artifacts --budget 500
+```
+
+The CLI accepts file-based inputs and delegates to public APIs. It does not
+evaluate arbitrary R source.
+
+## Scope and non-goals
+
+The v1.0 claim does not cover:
+
+- remote or credentialed extraction;
+- CAP-Core runtime or object semantics;
+- arbitrary R object conformance;
+- scientific or statistical correctness;
+- automatic claim inheritance by community, experimental, or fallback
+  adapters.
+
+Structural fallback is disabled by default and, when explicitly enabled, is
+bounded, structural-only, and marked `conformance_claim = "none"`.
+
+## Documentation
 
 - [Documentation index](docs/index.md)
-- [Project charter](docs/project-charter.md)
-- [Architecture overview](docs/architecture/overview.md)
-- [Repository layout](docs/architecture/repository-layout.md)
-- [Adapter contract](docs/architecture/adapter-contract.md)
-- [Runtime API draft](docs/api/runtime-api.md)
-- [Implementer guide](docs/handbook/implementer-guide.md)
-- [Implementation roadmap](docs/roadmap/implementation-plan.md)
-- [Architecture decisions](docs/decisions/README.md)
-- [Project status](PROJECT-STATUS.md)
+- [Getting started vignette](vignettes/getting-started.Rmd)
+- [Stable public API and compatibility](docs/api/public-api-v1.md)
+- [CLI reference](docs/cli.md)
+- [Adapter authoring](docs/handbook/writing-adapters.md)
+- [Security model](SECURITY.md)
+- [Adoption and conformance claim](ADOPTION.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Release process](docs/handbook/ci-release.md)
 
-## Current scope
-
-This bootstrap contains development documentation only. It intentionally does not yet add `DESCRIPTION`, `NAMESPACE`, `R/`, `tests/`, vendored fixtures, or CI workflows that imply executable package behavior.
-
-The future R package will live in this same repository. The reserved layout and the sequence for introducing package files are defined in [Repository layout](docs/architecture/repository-layout.md).
-
-## Upstream basis
-
-capR consumes, rather than redefines, CAP-Digest:
-
-- [CAP-Digest v1.0 stable scope](https://github.com/xiayh0107/cap-docs/blob/main/specs/digest/STABLE-SCOPE-v1.0.md)
-- [CAP-Digest Source Adapter Guide](https://github.com/xiayh0107/cap-docs/blob/main/specs/digest/SOURCE-ADAPTER-GUIDE.md)
-- [CAP-Digest Implementer and Adoption Guide](https://github.com/xiayh0107/cap-docs/blob/main/specs/digest/IMPLEMENTER-ADOPTION-v1.0.md)
-
-Normative CAP documents and published fixtures take precedence over capR implementation guidance.
-
-## Next gate
-
-The next development gate is **Phase 1: package bootstrap**. It starts only after the documentation baseline and the initial ADR set are accepted.
+Upstream CAP-Digest resources are pinned to tag `cap-digest-v1.0.0`, commit
+`d7890d4449107a88faed0e0c653d3751b57575f2`; vendored normative resources
+take precedence over capR implementation guidance.

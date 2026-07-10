@@ -1,0 +1,35 @@
+name: Independent interoperability
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: read-all
+
+jobs:
+  interop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          needs: check
+      - name: Generate canonical artifacts
+        run: |
+          R CMD INSTALL .
+          Rscript tools/generate-fixture-artifacts.R interop-artifacts
+      - name: Run independent standard-library harness
+        run: |
+          python3 tools/interop-harness/interop.py \
+            --artifact-root interop-artifacts \
+            --vendor-root inst/extdata/cap-digest/v1.0.0 \
+            --output-dir interop-artifacts/interop
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: capr-independent-interop
+          path: interop-artifacts

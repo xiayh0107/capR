@@ -1,0 +1,33 @@
+---
+title: "Canonical artifact I/O"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Canonical artifact I/O}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r}
+library(capR)
+digest <- cap_digest(data.frame(a = 1:2), budget = 500)
+directory <- tempfile()
+cap_write_artifacts(digest, directory)
+sort(list.files(directory))
+
+reloaded <- cap_read_artifacts(directory)
+stopifnot(
+  identical(reloaded$text, digest$text),
+  identical(
+    capr_canonical_json(reloaded$manifest),
+    capr_canonical_json(digest$manifest)
+  )
+)
+```
+
+`digest.txt`, `digest.json`, and `manifest.json` are canonical artifacts.
+`resolution.capr.json` is an optional implementation sidecar and is never
+embedded into a closed CAP artifact.

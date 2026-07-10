@@ -1,0 +1,29 @@
+Package: capR
+Type: Package
+Title: R-Hosted CAP-Digest Runtime
+Version: 1.0.0.9000
+Authors@R: person("Yihui", "Xia", email = "xiayh0107@users.noreply.github.com", role = c("aut", "cre"))
+Description: Builds deterministic, policy-bounded CAP-Digest artifacts from R
+    objects through an open adapter runtime. The initial stable conformance
+    target is the CAP-Digest version 1.0 table fixture surface.
+License: MIT + file LICENSE
+URL: https://github.com/xiayh0107/capR
+BugReports: https://github.com/xiayh0107/capR/issues
+Depends: R (>= 4.1.0)
+Imports:
+    digest,
+    jsonlite
+Suggests:
+    callr,
+    data.table,
+    jsonvalidate,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    tibble,
+    withr
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

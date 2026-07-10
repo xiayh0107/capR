@@ -1,0 +1,16 @@
+{
+  "sourceType": "table",
+  "label": "orders",
+  "columns": [
+    { "name": "order_id", "type": "chr", "examples": ["A001", "A002"] },
+    { "name": "customer_id", "type": "chr", "examples": ["C001", "C002"] },
+    { "name": "amount", "type": "dbl", "examples": [12.5, 19.0] },
+    { "name": "api_token", "type": "chr", "examples": ["sk_test_123", "sk_test_456"] }
+  ],
+  "sampleRows": [
+    { "order_id": "A001", "customer_id": "C001", "amount": 12.5 },
+    { "order_id": "A002", "customer_id": "C002", "amount": 19.0 }
+  ],
+  "rows": 1000,
+  "cols": 4
+}

@@ -1,6 +1,6 @@
 # Built-in Table-Family Adapter
 
-> Status: planned stable implementation target.
+> Status: implemented stable v1.0 target.
 
 ## Host classes
 

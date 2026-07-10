@@ -1,0 +1,13 @@
+{
+  "schema": "cap.pack_validation.v1",
+  "pack": {
+    "name": "table-basic",
+    "sourceTypes": ["table"],
+    "fieldIds": [
+      "f1:table@columns#compact",
+      "f1:table@sample#k10",
+      "f1:table@shape#base"
+    ],
+    "redactors": ["sensitive-name"]
+  }
+}

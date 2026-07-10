@@ -1,0 +1,68 @@
+{
+  "schema": "cap.manifest.v1",
+  "digestId": "cap-digest-security-renderer-failure",
+  "source": {
+    "uri": "fixture://security-adversarial/source.json",
+    "sourceType": "table",
+    "label": "security-adversarial"
+  },
+  "versions": {
+    "cap": "2026-07-05-draft",
+    "text": "v1",
+    "fields": "f1",
+    "manifest": "v1"
+  },
+  "budget": {
+    "requested": 500,
+    "estimated": 80,
+    "used": 24,
+    "tokenizer": "heuristic_v1"
+  },
+  "fingerprint": "structure_v1:security-adversarial-2x3",
+  "fields": [
+    {
+      "fieldId": "f1:table@shape#base",
+      "fieldLabel": "Shape",
+      "sourceType": "table",
+      "timing": "assemble",
+      "trust": "code",
+      "exec": "local_cheap",
+      "level": 1,
+      "selected": true,
+      "rejectedReason": null,
+      "estimatedCost": 24,
+      "actualCost": 24,
+      "priorValue": 1.0,
+      "renderMethod": "table_shape_base_v1",
+      "redacted": false,
+      "ok": true,
+      "warnings": [],
+      "errorClass": null,
+      "elapsedMs": 0,
+      "fingerprint": "structure_v1:security-adversarial-2x3",
+      "tokenizer": "heuristic_v1"
+    },
+    {
+      "fieldId": "f1:table@columns#compact",
+      "fieldLabel": "Columns",
+      "sourceType": "table",
+      "timing": "assemble",
+      "trust": "derived",
+      "exec": "local_cheap",
+      "level": 1,
+      "selected": false,
+      "rejectedReason": "field_validation_failed",
+      "estimatedCost": 120,
+      "actualCost": 0,
+      "priorValue": 1.1,
+      "renderMethod": "table_columns_compact_v1",
+      "redacted": false,
+      "ok": false,
+      "warnings": [],
+      "errorClass": "renderer_error",
+      "elapsedMs": 1,
+      "fingerprint": "structure_v1:security-adversarial-2x3",
+      "tokenizer": "heuristic_v1"
+    }
+  ]
+}

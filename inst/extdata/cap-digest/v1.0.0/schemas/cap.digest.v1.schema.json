@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.digest.v1.schema.json",
+  "title": "CAP-Digest Object v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema", "id", "source", "text", "manifest", "budgetUsed", "budgetEstimated", "fingerprint", "caveats"],
+  "properties": {
+    "schema": { "const": "cap.digest.v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "source": { "type": "object", "additionalProperties": true },
+    "text": { "type": "string", "pattern": "^cap digest text=v1" },
+    "manifest": { "type": "object", "additionalProperties": true },
+    "budgetUsed": { "type": "integer", "minimum": 0 },
+    "budgetEstimated": { "type": "integer", "minimum": 0 },
+    "fingerprint": { "type": "string" },
+    "caveats": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "plan": { "type": "object", "additionalProperties": true }
+  }
+}

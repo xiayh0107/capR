@@ -1,0 +1,50 @@
+---
+title: "Response validation and gated follow-up"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Response validation and gated follow-up}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r}
+library(capR)
+orders <- data.frame(
+  order_id = c("A001", "A002"),
+  amount = c(12.5, 19)
+)
+policy <- cap_policy(max_followup_budget = 300)
+digest <- cap_digest(orders, budget = 500, policy = policy)
+
+response <- list(
+  claims = list(),
+  evidence = list(),
+  warnings = list(),
+  requests = list(list(
+    fieldId = "f1:table@sample#k10",
+    level = 1L,
+    budget = 300L,
+    reason = "Need bounded sample rows."
+  ))
+)
+validation <- cap_validate_response(digest, response, policy)
+gate <- cap_gate(digest, validation, policy)
+stopifnot(validation$ok, gate$overallDecision == "approved")
+```
+
+The gate is pure: it decides without calling an extractor. Trusted host code
+materializes the approved patch and rechecks fingerprint and adapter pin.
+
+```{r}
+patch <- cap_patch(digest, gate, orders, policy = policy)
+extended <- cap_apply_patch(digest, patch)
+stopifnot(grepl(
+  '<field id="f1:table@sample#k10"',
+  extended$text,
+  fixed = TRUE
+))
+```

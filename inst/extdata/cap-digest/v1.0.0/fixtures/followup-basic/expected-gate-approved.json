@@ -1,0 +1,43 @@
+{
+  "schema": "cap.gate_result.v1",
+  "digestId": "cap-digest-basic-table",
+  "fingerprint": "structure_v1:orders-1000x4",
+  "overallDecision": "approved",
+  "remainingBudget": 200,
+  "policyRef": "fixture://basic-table/policy.json",
+  "requests": [
+    {
+      "requestIndex": 0,
+      "request": {
+        "fieldId": "f1:table@sample#k10",
+        "level": 1,
+        "budget": 300,
+        "reason": "Need sample rows before commenting on values."
+      },
+      "decision": "approved",
+      "approvedLevel": 1,
+      "approvedBudget": 300,
+      "requiresUserConfirmation": false,
+      "problems": []
+    }
+  ],
+  "patch": {
+    "schema": "cap.digest_patch.v1",
+    "patchId": "cap-patch-followup-basic-sample",
+    "baseDigestId": "cap-digest-basic-table",
+    "baseFingerprint": "structure_v1:orders-1000x4",
+    "budgetDelta": { "estimated": 300, "used": 120 },
+    "operations": [
+      {
+        "op": "add_selected_field",
+        "fieldId": "f1:table@sample#k10",
+        "fieldBlock": "<field id=\"f1:table@sample#k10\" trust=\"data\" level=\"1\">\nrow 1: <data>A001</data>, <data>C001</data>, <data>12.5</data>, <data>[masked: sensitive name]</data>\n</field>"
+      },
+      {
+        "op": "remove_available_on_request",
+        "fieldId": "f1:table@sample#k10"
+      }
+    ],
+    "manifestRows": []
+  }
+}

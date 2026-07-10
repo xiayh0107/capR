@@ -1,0 +1,17 @@
+schema: cap.field.v1
+id: f1:table@sample#k10
+label: Sample rows
+description: Up to ten sample rows from a tabular source.
+sourceTypes:
+  - table
+timing: interactive
+trust: data
+exec: local_scan
+selectionHints:
+  priorValue: 0.8
+  intentTags:
+    - sample
+levels:
+  - level: 1
+    estimatedCost: 300
+    description: Up to ten rows, available only through gated follow-up.

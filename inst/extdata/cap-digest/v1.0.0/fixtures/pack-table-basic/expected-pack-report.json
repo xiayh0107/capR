@@ -1,0 +1,15 @@
+{
+  "schema": "cap.pack_conformance_report.v1",
+  "pack": "table-basic",
+  "packVersion": "2026-07-05-draft",
+  "status": "experimental",
+  "implementation": {
+    "name": "cap-digest-reference",
+    "version": "0.0.1"
+  },
+  "checks": [
+    { "name": "frontmatter", "passed": true, "issues": [] },
+    { "name": "fields", "passed": true, "issues": [] },
+    { "name": "fixtures", "passed": true, "issues": [] }
+  ]
+}

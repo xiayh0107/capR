@@ -1,8 +1,9 @@
 # Repository Layout
 
-## Current bootstrap
+## Current package
 
-This revision lands documentation only. Future R package files will be added in this same repository in controlled phases.
+The v1.0 implementation, documentation, vendored resources, tests, CLI, and
+release harnesses share this repository.
 
 ## Target repository tree
 
@@ -11,34 +12,34 @@ capR/
 ├── DESCRIPTION
 ├── NAMESPACE
 ├── R/
-│   ├── api-digest.R
-│   ├── api-validate.R
-│   ├── api-gate.R
-│   ├── api-patch.R
-│   ├── api-adapter.R
-│   ├── api-registry.R
-│   ├── adapter-object.R
+│   ├── digest.R
+│   ├── validation.R
+│   ├── gate.R
+│   ├── patch.R
+│   ├── adapter.R
 │   ├── registry.R
-│   ├── source-ref.R
-│   ├── field-catalog.R
+│   ├── table-adapter.R
 │   ├── planner.R
 │   ├── materialize.R
-│   ├── redaction.R
-│   ├── render-text-v1.R
-│   ├── manifest-v1.R
-│   ├── validation-v1.R
-│   ├── gate-v1.R
-│   ├── patch-v1.R
+│   ├── text.R
+│   ├── manifest.R
+│   ├── artifacts.R
 │   ├── fallback.R
-│   ├── errors.R
-│   ├── adapter-table.R
-│   └── zzz.R
+│   ├── policy.R
+│   ├── pack.R
+│   ├── conformance.R
+│   ├── vendor.R
+│   ├── contract.R
+│   ├── provenance.R
+│   ├── conditions.R
+│   └── utils.R
 ├── inst/extdata/cap-digest/v1.0.0/
 │   ├── schemas/
 │   ├── fixtures/
 │   ├── packs/
 │   ├── reports/
-│   └── VENDORING.md
+│   ├── VENDOR-LOCK.json
+│   └── UPSTREAM-LICENSE
 ├── tests/
 │   ├── testthat/
 │   ├── contract/
@@ -46,7 +47,7 @@ capR/
 ├── tools/
 │   ├── vendor-cap-digest.R
 │   ├── schema-harness/
-│   ├── interop-harness.R
+│   ├── interop-harness/
 │   └── release-artifacts.R
 ├── vignettes/
 ├── exec/capr

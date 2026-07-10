@@ -1,45 +1,34 @@
 # capR Documentation
 
-This documentation system is the design baseline for the future R package in this repository.
+## Users
 
-## Read by role
+1. [README quick start](../README.md)
+2. [Getting started vignette](../vignettes/getting-started.Rmd)
+3. [Table conformance](../vignettes/table-conformance.Rmd)
+4. [Response validation and follow-up](../vignettes/response-followup.Rmd)
+5. [Artifact I/O](../vignettes/artifact-io.Rmd)
+6. [CLI reference](cli.md)
+7. [Troubleshooting](troubleshooting.md)
 
-### Project reviewer
+## Adapter authors and implementers
 
-1. [Project charter](project-charter.md)
-2. [Architecture overview](architecture/overview.md)
-3. [Implementation plan](roadmap/implementation-plan.md)
-4. [Architecture decisions](decisions/README.md)
+1. [Stable public API and compatibility](api/public-api-v1.md)
+2. [Adapter API](api/adapter-api.md)
+3. [Adapter contract](architecture/adapter-contract.md)
+4. [Writing adapters](handbook/writing-adapters.md)
+5. [Registry resolution](architecture/registry-resolution.md)
+6. [Security model](architecture/security-model.md)
+7. [Testing and conformance](handbook/testing-conformance.md)
 
-### Runtime implementer
+## Release maintainers
 
-1. [Repository layout](architecture/repository-layout.md)
-2. [Adapter contract](architecture/adapter-contract.md)
-3. [Registry resolution](architecture/registry-resolution.md)
-4. [Artifact boundaries](architecture/artifact-boundaries.md)
-5. [Runtime API](api/runtime-api.md)
-6. [Error model](api/error-model.md)
-7. [Implementer workflow](handbook/implementer-guide.md)
-
-### Adapter author
-
-1. [Adapter API](api/adapter-api.md)
-2. [Writing adapters](handbook/writing-adapters.md)
-3. [Table-family adapter](adapters/table-family.md)
-4. [Adapter template](adapters/adapter-template.md)
-5. [Testing and conformance](handbook/testing-conformance.md)
-
-### Release maintainer
-
-1. [Security model](architecture/security-model.md)
-2. [Testing and conformance](handbook/testing-conformance.md)
+1. [Adoption and conformance claim](../ADOPTION.md)
+2. [Security policy](../SECURITY.md)
 3. [CI and release](handbook/ci-release.md)
-4. [Adoption and claims](../ADOPTION.md)
+4. [Artifact boundaries](architecture/artifact-boundaries.md)
+5. [Vendoring](../VENDORING.md)
+6. [Architecture decisions](decisions/README.md)
 
-## Document authority
-
-This repository documents capR implementation decisions. Upstream CAP-Digest normative documents and published fixtures remain authoritative for CAP behavior.
-
-## Maintenance rule
-
-A change to architecture, public API, adapter behavior, security defaults, or conformance language is incomplete until the corresponding document is updated.
+Upstream CAP-Digest normative resources and fixtures remain authoritative for
+CAP behavior. capR documentation governs host integration, API compatibility,
+security defaults, and release evidence.

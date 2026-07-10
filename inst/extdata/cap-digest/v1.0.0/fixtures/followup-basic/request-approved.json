@@ -1,0 +1,13 @@
+{
+  "claims": [],
+  "evidence": [],
+  "warnings": [],
+  "requests": [
+    {
+      "fieldId": "f1:table@sample#k10",
+      "level": 1,
+      "budget": 300,
+      "reason": "Need sample rows before commenting on values."
+    }
+  ]
+}

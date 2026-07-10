@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.validation_result.v1.schema.json",
+  "title": "CAP-Digest ValidationResult v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "digestId", "fingerprint", "ok", "errors", "normalizedResponse"],
+  "properties": {
+    "schema": { "const": "cap.validation_result.v1" },
+    "digestId": { "type": "string" },
+    "fingerprint": { "type": "string" },
+    "ok": { "type": "boolean" },
+    "errors": { "type": "array", "items": { "$ref": "#/$defs/problem" } },
+    "warnings": { "type": "array", "items": { "$ref": "#/$defs/problem" }, "default": [] },
+    "normalizedResponse": { "$ref": "cap.contract_response.v1.schema.json" }
+  },
+  "$defs": {
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "fieldId": { "type": ["string", "null"] },
+        "requestIndex": { "type": ["integer", "null"], "minimum": 0 },
+        "retryable": { "type": ["boolean", "null"] }
+      }
+    }
+  }
+}

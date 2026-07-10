@@ -1,0 +1,35 @@
+{
+  "schema": "cap.validation_fixture.v1",
+  "response": {
+    "claims": [
+      {
+        "id": "claim-1",
+        "text": "The table contains 1000 rows and 4 columns.",
+        "evidence": ["f1:table@shape#base"]
+      }
+    ],
+    "evidence": ["f1:table@columns#compact"],
+    "warnings": [],
+    "requests": []
+  },
+  "validation": {
+    "schema": "cap.validation_result.v1",
+    "digestId": "cap-digest-basic-table",
+    "fingerprint": "structure_v1:orders-1000x4",
+    "ok": true,
+    "errors": [],
+    "warnings": [],
+    "normalizedResponse": {
+      "claims": [
+        {
+          "id": "claim-1",
+          "text": "The table contains 1000 rows and 4 columns.",
+          "evidence": ["f1:table@shape#base"]
+        }
+      ],
+      "evidence": ["f1:table@columns#compact"],
+      "warnings": [],
+      "requests": []
+    }
+  }
+}

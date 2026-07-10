@@ -1,0 +1,14 @@
+cap digest text=v1 fields=f1 fp=structure_v1:negative tokenizer=heuristic_v1 budget=10/100
+# source: table label=negative
+
+<field id="f1:table@shape#base" trust="code" level="1">
+10 rows x 2 columns
+</field>
+
+<field id="f1:table@columns#compact" trust="derived" level="1">
+name <str> e.g. <data>Alice</data>
+</field>
+
+<field id="f1:table@sample#k10" trust="data" level="1">
+1. name=<data>Alice</data>
+</field>

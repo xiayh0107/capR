@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.gate_result.v1.schema.json",
+  "title": "CAP-Digest GateResult v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "digestId", "fingerprint", "overallDecision", "requests"],
+  "properties": {
+    "schema": { "const": "cap.gate_result.v1" },
+    "digestId": { "type": "string" },
+    "fingerprint": { "type": "string" },
+    "overallDecision": {
+      "enum": ["approved", "approved_with_changes", "needs_confirmation", "denied", "stale_source"]
+    },
+    "remainingBudget": { "type": ["integer", "null"], "minimum": 0 },
+    "policyRef": { "type": ["string", "null"] },
+    "requests": { "type": "array", "items": { "$ref": "#/$defs/requestDecision" } },
+    "patch": {
+      "anyOf": [
+        { "$ref": "cap.digest_patch.v1.schema.json" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "requestDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestIndex", "request", "decision"],
+      "properties": {
+        "requestIndex": { "type": "integer", "minimum": 0 },
+        "request": { "type": "object", "additionalProperties": true },
+        "decision": {
+          "enum": ["approved", "approved_with_changes", "needs_confirmation", "denied", "stale_source", "unknown_field", "unknown_level", "not_available", "over_budget", "exec_not_allowed", "privacy_blocked", "request_limit_exceeded"]
+        },
+        "approvedLevel": { "type": ["integer", "null"], "minimum": 1 },
+        "approvedBudget": { "type": ["integer", "null"], "minimum": 0 },
+        "requiresUserConfirmation": { "type": "boolean", "default": false },
+        "problems": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+      }
+    }
+  }
+}

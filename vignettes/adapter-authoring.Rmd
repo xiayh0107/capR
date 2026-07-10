@@ -1,0 +1,97 @@
+---
+title: "Authoring a community adapter"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Authoring a community adapter}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+A minimal adapter keeps executable functions in local bindings and serializes
+only symbolic contract names.
+
+```{r}
+library(capR)
+
+adapter <- cap_new_adapter(
+  id = "org.example.small_table",
+  version = "1.0.0",
+  provider = "examplePackage",
+  provider_version = "1.0.0",
+  source_family = "table",
+  maturity = "community",
+  semantic_level = "table",
+  conformance_claim = "none",
+  capabilities = list(
+    followup = FALSE, remote = FALSE, credentials = FALSE
+  ),
+  source_ref = function(x, context = list()) {
+    list(
+      schema = "cap.source_ref.v1",
+      uri = "r-host://example/table",
+      sourceType = "table",
+      label = "example"
+    )
+  },
+  field_catalog = function(x, context = list()) {
+    list(
+      schema = "cap.field_catalog.v1",
+      catalogId = "org.example.small_table.v1",
+      sourceType = "table",
+      versions = list(
+        cap = "2026-07-05-draft", fields = "f1", catalog = "v1"
+      ),
+      fields = list(list(
+        schema = "cap.field.v1",
+        id = "f1:table@org_example_shape#base",
+        label = "Shape",
+        description = "Example table dimensions.",
+        sourceTypes = list("table"),
+        timing = "assemble",
+        trust = "code",
+        exec = "local_cheap",
+        contracts = list(
+          extractor = "example.shape",
+          redactor = "example.identity",
+          renderer = "example.shape.text_v1"
+        ),
+        selectionHints = list(priorValue = 1, intentTags = list("shape")),
+        levels = list(list(
+          level = 1L, estimatedCost = 20L,
+          description = "Rows and columns."
+        ))
+      ))
+    )
+  },
+  fingerprint = function(x, context = list()) {
+    list(
+      available = TRUE,
+      algorithm = "example-structure-v1",
+      value = paste(nrow(x), ncol(x), paste(names(x), collapse = ","))
+    )
+  },
+  bindings = list(
+    extractors = list("example.shape" = function(x, level, context) {
+      list(rows = nrow(x), columns = ncol(x))
+    }),
+    redactors = list("example.identity" = function(value, ...) {
+      list(
+        value = value, redacted = FALSE, warnings = character(),
+        caveats = list(), rules = character()
+      )
+    }),
+    renderers = list("example.shape.text_v1" = function(value, ...) {
+      sprintf("%d rows x %d columns", value$rows, value$columns)
+    })
+  )
+)
+
+contract <- cap_test_adapter(adapter, data.frame(x = 1:2))
+stopifnot(contract$ok)
+```
+
+Passing proves capR adapter compatibility, not a new CAP conformance claim.
