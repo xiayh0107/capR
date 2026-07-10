@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.1 - Unreleased
+
+### Documentation
+
+- Added an executable Chinese quickstart vignette covering the complete
+  digest, response validation, gated follow-up, patch, artifact I/O, fixture,
+  and CLI workflow.
+
+### Scope
+
+- No public API, schema, CLI, adapter-contract, fixture, or stable conformance
+  claim changes.
+
 ## 1.0.0 - 2026-07-10
 
 ### Added

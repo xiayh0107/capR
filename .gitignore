@@ -11,3 +11,5 @@ interop-artifacts/
 conformance-artifacts/
 __pycache__/
 *.pyc
+/quickstart.html
+/vignettes/*.html

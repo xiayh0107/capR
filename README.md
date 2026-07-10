@@ -92,6 +92,7 @@ bounded, structural-only, and marked `conformance_claim = "none"`.
 ## Documentation
 
 - [Documentation index](docs/index.md)
+- [中文快速上手（推荐）](vignettes/quickstart.Rmd)
 - [Getting started vignette](vignettes/getting-started.Rmd)
 - [Stable public API and compatibility](docs/api/public-api-v1.md)
 - [CLI reference](docs/cli.md)

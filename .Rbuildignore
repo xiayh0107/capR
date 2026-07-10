@@ -16,3 +16,5 @@
 ^conformance-artifacts$
 ^capR.*\.Rproj$
 ^\.Rproj\.user$
+^quickstart[.]html$
+^vignettes/.*[.]html$
