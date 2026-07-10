@@ -1,0 +1,265 @@
+{
+  "checks": [
+    {
+      "count": 11,
+      "draft": "2020-12",
+      "errors": [],
+      "expected": "valid",
+      "name": "schema meta-validation",
+      "ok": true
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "basic manifest",
+      "ok": true,
+      "schema": "cap.manifest.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "basic response",
+      "ok": true,
+      "schema": "cap.contract_response.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "basic validation",
+      "ok": true,
+      "schema": "cap.validation_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "followup approved response",
+      "ok": true,
+      "schema": "cap.contract_response.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "followup validation",
+      "ok": true,
+      "schema": "cap.validation_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "followup gate approved",
+      "ok": true,
+      "schema": "cap.gate_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "followup gate stale",
+      "ok": true,
+      "schema": "cap.gate_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "followup patch",
+      "ok": true,
+      "schema": "cap.digest_patch.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "security failure manifest",
+      "ok": true,
+      "schema": "cap.manifest.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "pack conformance report",
+      "ok": true,
+      "schema": "cap.pack_conformance_report.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "vendored conformance report",
+      "ok": true,
+      "schema": "cap.conformance_report.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "negative response 0",
+      "ok": true,
+      "schema": "cap.contract_response.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "negative validation 0",
+      "ok": true,
+      "schema": "cap.validation_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "negative response 1",
+      "ok": true,
+      "schema": "cap.contract_response.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "negative validation 1",
+      "ok": true,
+      "schema": "cap.validation_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "negative response 2",
+      "ok": true,
+      "schema": "cap.contract_response.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "negative validation 2",
+      "ok": true,
+      "schema": "cap.validation_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/conformance/conformance-report.json",
+      "ok": true,
+      "schema": "cap.conformance_report.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/digest/digest.json",
+      "ok": true,
+      "schema": "cap.digest.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/digest/manifest.json",
+      "ok": true,
+      "schema": "cap.manifest.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/gate/gate.json",
+      "ok": true,
+      "schema": "cap.gate_result.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/pack-conformance/pack-conformance-report.json",
+      "ok": true,
+      "schema": "cap.pack_conformance_report.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/patch/patch.json",
+      "ok": true,
+      "schema": "cap.digest_patch.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/schema-only/contract-response.json",
+      "ok": true,
+      "schema": "cap.contract_response.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/schema-only/digest-pack.json",
+      "ok": true,
+      "schema": "cap.digest_pack.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/schema-only/field-catalog.json",
+      "ok": true,
+      "schema": "cap.field_catalog.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/schema-only/fields/f1-table-columns-compact.json",
+      "ok": true,
+      "schema": "cap.field.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/schema-only/fields/f1-table-sample-k10.json",
+      "ok": true,
+      "schema": "cap.field.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/schema-only/fields/f1-table-shape-base.json",
+      "ok": true,
+      "schema": "cap.field.v1"
+    },
+    {
+      "errors": [],
+      "expected": "valid",
+      "name": "emitted/validation/validation.json",
+      "ok": true,
+      "schema": "cap.validation_result.v1"
+    },
+    {
+      "errors": [
+        ": 'fingerprint' is a required property"
+      ],
+      "expected": "invalid",
+      "name": "invalid manifest missing fingerprint",
+      "ok": true,
+      "schema": "cap.manifest.v1"
+    },
+    {
+      "errors": [
+        "requests/0/decision: 'silently_allowed' is not one of ['approved', 'approved_with_changes', 'needs_confirmation', 'denied', 'stale_source', 'unknown_field', 'unknown_level', 'not_available', 'over_budget', 'exec_not_allowed', 'privacy_blocked', 'request_limit_exceeded']"
+      ],
+      "expected": "invalid",
+      "name": "invalid gate decision",
+      "ok": true,
+      "schema": "cap.gate_result.v1"
+    },
+    {
+      "errors": [
+        "operations/0: {'op': 'execute_arbitrary_code', 'fieldId': 'f1:table@sample#k10', 'fieldBlock': '<field id=\"f1:table@sample#k10\" trust=\"data\" level=\"1\">\\n1. order_id=<data>A001</data>, customer_id=<data>C001</data>, amount=<data>12.5</data>\\n2. order_id=<data>A002</data>, customer_id=<data>C002</data>, amount=<data>19.0</data>\\n</field>'} is not valid under any of the given schemas"
+      ],
+      "expected": "invalid",
+      "name": "invalid patch operation",
+      "ok": true,
+      "schema": "cap.digest_patch.v1"
+    },
+    {
+      "errors": [
+        ": Additional properties are not allowed ('unexpected' was unexpected)"
+      ],
+      "expected": "invalid",
+      "name": "invalid validation property",
+      "ok": true,
+      "schema": "cap.validation_result.v1"
+    }
+  ],
+  "ok": true,
+  "schema": "capr.schema_harness_report.v1",
+  "validator": {
+    "draft": "2020-12",
+    "name": "python-jsonschema",
+    "version": "4.26.0"
+  }
+}

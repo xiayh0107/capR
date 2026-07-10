@@ -1,0 +1,48 @@
+{
+  "claimedLevels": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "fixtures": [
+    {
+      "name": "fixtures/basic-table",
+      "ok": true,
+      "problemCodes": [],
+      "unsupportedFeatures": []
+    },
+    {
+      "name": "fixtures/digest-text-negative",
+      "ok": true,
+      "problemCodes": [],
+      "unsupportedFeatures": []
+    },
+    {
+      "name": "fixtures/security-adversarial",
+      "ok": true,
+      "problemCodes": [],
+      "unsupportedFeatures": []
+    },
+    {
+      "name": "fixtures/followup-basic",
+      "ok": true,
+      "problemCodes": [],
+      "unsupportedFeatures": []
+    },
+    {
+      "name": "fixtures/pack-table-basic",
+      "ok": true,
+      "problemCodes": [],
+      "unsupportedFeatures": []
+    }
+  ],
+  "implementation": {
+    "command": "capR::cap_run_fixtures()",
+    "name": "capR.primary_conformance",
+    "version": "1.0.0-dev.9000"
+  },
+  "release": "capR-v1.0.0",
+  "schema": "cap.digest.interop_report.v1",
+  "status": "candidate"
+}
