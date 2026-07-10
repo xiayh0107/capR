@@ -97,6 +97,18 @@ run(
   env = "_R_CHECK_CRAN_INCOMING_=FALSE"
 )
 setwd(old)
+check_lines <- readLines(
+  check_log,
+  warn = FALSE,
+  encoding = "UTF-8"
+)
+check_lines <- gsub(
+  workspace, "<release-workspace>", check_lines, fixed = TRUE
+)
+check_lines <- gsub(
+  root, "<source-root>", check_lines, fixed = TRUE
+)
+writeLines(check_lines, check_log, useBytes = TRUE)
 
 library_root <- file.path(workspace, "library")
 dir.create(library_root)
