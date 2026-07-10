@@ -114,6 +114,20 @@ capr_pack_no_executable_metadata <- function(x, path = "") {
   invisible(TRUE)
 }
 
+capr_normalize_pack_path <- function(path, mustWork = TRUE) {
+  normalizePath(path, winslash = "/", mustWork = mustWork)
+}
+
+capr_pack_path_key <- function(path) {
+  if (identical(.Platform$OS.type, "windows")) tolower(path) else path
+}
+
+capr_pack_path_within <- function(path, root) {
+  path <- capr_pack_path_key(capr_normalize_pack_path(path))
+  root <- capr_pack_path_key(capr_normalize_pack_path(root))
+  identical(path, root) || startsWith(path, paste0(root, "/"))
+}
+
 #' Load the built-in table-basic Digest Pack metadata
 #'
 #' Pack metadata is declarative. This loader never executes renderer,
@@ -133,9 +147,11 @@ cap_load_pack <- function(name = "table-basic",
   allow_external <- capr_assert_flag(
     allow_external, "allow_external", "capr_artifact_invalid"
   )
-  root <- normalizePath(root, mustWork = TRUE)
-  vendored <- normalizePath(capr_vendor_root(), mustWork = TRUE)
-  if (!allow_external && !identical(root, vendored)) {
+  root <- capr_normalize_pack_path(root)
+  vendored <- capr_normalize_pack_path(capr_vendor_root())
+  if (!allow_external && !identical(
+    capr_pack_path_key(root), capr_pack_path_key(vendored)
+  )) {
     capr_abort(
       "capr_artifact_invalid",
       "external Digest Pack roots are disabled by default",
@@ -149,11 +165,13 @@ cap_load_pack <- function(name = "table-basic",
       pack = name
     )
   }
-  pack_dir <- normalizePath(
+  pack_dir <- capr_normalize_pack_path(
     file.path(root, "packs", name),
     mustWork = TRUE
   )
-  if (!startsWith(pack_dir, paste0(root, .Platform$file.sep))) {
+  if (identical(
+    capr_pack_path_key(pack_dir), capr_pack_path_key(root)
+  ) || !capr_pack_path_within(pack_dir, root)) {
     capr_abort(
       "capr_artifact_invalid",
       "Digest Pack path escaped its approved root"

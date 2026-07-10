@@ -101,3 +101,15 @@ test_that("pack hosting rejects external and executable metadata by default", {
     class = "capr_artifact_invalid"
   )
 })
+
+test_that("pack path containment is component-aware and normalized", {
+  root <- tempfile("capr-pack-root-")
+  inside <- file.path(root, "packs", "table-basic")
+  sibling <- paste0(root, "-sibling")
+  dir.create(inside, recursive = TRUE)
+  dir.create(sibling)
+
+  expect_true(capR:::capr_pack_path_within(inside, root))
+  expect_true(capR:::capr_pack_path_within(root, root))
+  expect_false(capR:::capr_pack_path_within(sibling, root))
+})
