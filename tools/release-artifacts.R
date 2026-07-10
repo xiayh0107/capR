@@ -44,6 +44,15 @@ run <- function(command, arguments, stdout = TRUE, stderr = TRUE,
 }
 `%||%` <- function(x, y) if (is.null(x)) y else x
 r_string <- function(x) encodeString(x, quote = '"')
+normalize_release_text <- function(path) {
+  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
+  lines <- sub("[[:blank:]]+$", "", lines)
+  while (length(lines) && !nzchar(lines[[length(lines)]])) {
+    lines <- lines[-length(lines)]
+  }
+  writeLines(lines, path, useBytes = TRUE)
+  invisible(path)
+}
 
 dirty <- run(
   "git",
@@ -303,6 +312,17 @@ readme <- sprintf(
   version
 )
 writeLines(readme, file.path(stage, "README.md"), useBytes = TRUE)
+
+release_files <- list.files(
+  stage,
+  recursive = TRUE,
+  all.files = TRUE,
+  full.names = TRUE,
+  include.dirs = FALSE,
+  no.. = TRUE
+)
+text_files <- release_files[!grepl("\\.tar\\.gz$", release_files)]
+invisible(lapply(text_files, normalize_release_text))
 
 files_before_manifest <- list.files(
   stage,
