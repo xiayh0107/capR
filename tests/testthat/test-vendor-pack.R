@@ -29,6 +29,16 @@ test_that("vendored CAP-Digest release verifies against its lock", {
   expect_true(all(c(
     "basic-table", "followup-basic", "pack-table-basic"
   ) %in% info$fixture_scope))
+
+  vendor_files <- list.files(
+    capR:::capr_vendor_root(),
+    recursive = TRUE,
+    full.names = TRUE
+  )
+  expect_false(any(vapply(vendor_files, function(path) {
+    bytes <- readBin(path, what = "raw", n = file.info(path)$size)
+    any(bytes == as.raw(0x0d))
+  }, logical(1))))
 })
 
 test_that("vendor verification detects mutation, omission, and additions", {

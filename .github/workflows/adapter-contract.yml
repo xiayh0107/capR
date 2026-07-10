@@ -23,7 +23,8 @@ jobs:
         with:
           needs: check
       - name: Install capR
-        run: R CMD INSTALL .
+        shell: Rscript {0}
+        run: install.packages(".", repos = NULL, type = "source")
       - name: Run adapter contract tests
         shell: Rscript {0}
         run: |

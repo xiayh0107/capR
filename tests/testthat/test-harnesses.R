@@ -73,6 +73,10 @@ test_that("strict Draft 2020-12 harness validates fixtures", {
   script <- source_test_path(
     "tools", "schema-harness", "validate.py"
   )
+  skip_if_not(
+    file.exists(script),
+    "source schema harness is unavailable in the installed check sandbox"
+  )
   report <- tempfile(fileext = ".json")
   output <- suppressWarnings(system2(
     python,
@@ -86,7 +90,8 @@ test_that("strict Draft 2020-12 harness validates fixtures", {
   ))
   status <- attr(output, "status")
   if (is.null(status)) status <- 0L
-  expect_identical(status, 0L)
+  expect_identical(status, 0L, info = paste(output, collapse = "\n"))
+  expect_true(file.exists(report), info = paste(output, collapse = "\n"))
   result <- jsonlite::fromJSON(report, simplifyVector = FALSE)
   expect_true(result$ok)
   expect_identical(result$validator$draft, "2020-12")
@@ -96,6 +101,10 @@ test_that("independent harness agrees and detects corruption", {
   python <- python3_path()
   script <- source_test_path(
     "tools", "interop-harness", "interop.py"
+  )
+  skip_if_not(
+    file.exists(script),
+    "source interop harness is unavailable in the installed check sandbox"
   )
   artifacts <- tempfile()
   dir.create(artifacts)
@@ -114,7 +123,7 @@ test_that("independent harness agrees and detects corruption", {
   ))
   status <- attr(output, "status")
   if (is.null(status)) status <- 0L
-  expect_identical(status, 0L)
+  expect_identical(status, 0L, info = paste(output, collapse = "\n"))
   comparison <- jsonlite::fromJSON(
     file.path(output_dir, "capr-interop-comparison.json"),
     simplifyVector = FALSE
