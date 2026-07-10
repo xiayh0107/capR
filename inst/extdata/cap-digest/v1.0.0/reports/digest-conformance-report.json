@@ -1,0 +1,31 @@
+{
+  "checks": [
+    {
+      "name": "fixtures/basic-table",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/digest-text-negative",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/followup-basic",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/pack-table-basic",
+      "ok": true,
+      "problems": []
+    },
+    {
+      "name": "fixtures/security-adversarial",
+      "ok": true,
+      "problems": []
+    }
+  ],
+  "ok": true,
+  "schema": "cap.conformance_report.v1"
+}

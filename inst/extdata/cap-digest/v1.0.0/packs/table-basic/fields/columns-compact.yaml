@@ -1,0 +1,14 @@
+schema: cap.field.v1
+id: f1:table@columns#compact
+label: Columns
+description: Compact column names, types, and masked examples for a tabular source.
+sourceTypes:
+  - table
+timing: assemble
+trust: derived
+exec: local_cheap
+levels:
+  - level: 1
+    estimatedCost: 120
+    priorValue: 1.1
+    description: Column names, types, and at most two masked examples per column.

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.contract_response.v1.schema.json",
+  "title": "CAP-Digest ContractResponse v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["claims", "evidence", "warnings", "requests"],
+  "properties": {
+    "claims": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/claim" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/warning" }
+    },
+    "requests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/request" }
+    }
+  },
+  "$defs": {
+    "claim": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "text", "evidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string" },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "warning": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["text"],
+          "properties": {
+            "text": { "type": "string" },
+            "evidence": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["fieldId", "reason"],
+      "properties": {
+        "fieldId": { "type": "string", "minLength": 1 },
+        "level": { "type": ["integer", "null"], "minimum": 1 },
+        "budget": { "type": ["integer", "null"], "minimum": 0 },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

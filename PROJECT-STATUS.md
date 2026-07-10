@@ -4,34 +4,35 @@
 
 ## Current state
 
-| Area | State | Notes |
+| Area | State | Evidence |
 |---|---|---|
-| Repository | initialized | Documentation-first bootstrap |
-| Product scope | documented | Digest-first, table-first, fixture-scoped |
-| Adapter architecture | draft baseline | Hybrid S3 bridge + deterministic registry |
-| Runtime API | draft baseline | No executable implementation yet |
-| R package skeleton | not started | Planned for Phase 1 |
-| Vendored CAP resources | not started | Planned after package skeleton |
-| Tests and CI | planned | No conformance claim yet |
-| Release | not applicable | No package release exists |
+| R package | implemented | Build, install, load, and R CMD check gates |
+| Adapter runtime | implemented | Deterministic resolution, pinning, fallback, contract suite |
+| Table L0/L1 | implemented | Byte-exact basic-table plus security/negative fixtures |
+| Follow-up L2 | implemented | Validation, pure gate, typed patch, stale/pin checks |
+| Pack host L3 | implemented | Fail-closed table-basic metadata host |
+| Schema | implemented | Strict Draft 2020-12 development/release harness |
+| Interoperability | implemented | Independent standard-library Python structural harness |
+| CLI and docs | implemented | Public-API wrappers, vignettes, compatibility/security docs |
+| Stable release | release candidate | Final committed artifacts, CI, tag, and GitHub Release pending |
 
-## Claims
+## Release claim under review
 
-capR currently makes **no CAP conformance claim**.
+```text
+Implementation: capR 1.0.0
+CAP-Digest: v1.0.0, cap-digest-v1.0.0
+Level: L0-L3
+Fixture scope: published v1.0 digest fixture suite
+Stable source family: table
+Stable R hosts: data.frame, tbl_df, data.table
+```
 
-Any future claim must identify the capR version, CAP-Digest version, conformance level, fixture revision, supported source family, unsupported features, and report locations.
+This claim excludes remote/credentialed extraction, CAP-Core semantics,
+arbitrary-object conformance, and scientific correctness. Community,
+experimental, and fallback adapters remain separately labeled.
 
-## Active decisions
+## Active release gate
 
-- [ADR-0001: Digest-first and table-first](docs/decisions/ADR-0001-digest-first-table-first.md)
-- [ADR-0002: Hybrid adapter resolution](docs/decisions/ADR-0002-hybrid-adapter-resolution.md)
-- [ADR-0003: Canonical artifacts and sidecars](docs/decisions/ADR-0003-canonical-artifacts-and-sidecars.md)
-- [ADR-0004: Strict schema validation in CI](docs/decisions/ADR-0004-schema-validation-in-ci.md)
-
-## Immediate next work
-
-1. Review and accept the documentation baseline.
-2. Choose the package license and minimum supported R version.
-3. Add the standard R package skeleton.
-4. Vendor the published CAP-Digest v1.0 resources with provenance.
-5. Implement the adapter contract and contract tests before table rendering.
+Generate and commit `release-artifacts/capR-v1.0.0/`, validate its manifest,
+pass every required GitHub check on the exact commit, then create the annotated
+`capR-v1.0.0` tag and matching GitHub Release assets.

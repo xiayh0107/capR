@@ -1,0 +1,21 @@
+cap digest text=v1 fields=f1 fp=structure_v1:orders-1000x4 tokenizer=heuristic_v1 budget=160/500
+# source: table label=orders rows=1000 cols=4
+
+<field id="f1:table@shape#base" trust="code" level="1">
+1000 rows x 4 columns
+</field>
+
+<field id="f1:table@columns#compact" trust="derived" level="1">
+order_id <chr> e.g. <data>A001</data>, <data>A002</data>
+customer_id <chr> e.g. <data>C001</data>, <data>C002</data>
+amount <dbl> e.g. <data>12.5</data>, <data>19.0</data>
+api_token <chr> e.g. <data>[masked: sensitive name]</data>
+</field>
+
+<caveats>
+- [cap_caveat_redacted] f1:table@columns#compact: values in "api_token" were masked
+</caveats>
+
+<available_on_request>
+f1:table@sample#k10 exec=local_scan level=1 estimated=300
+</available_on_request>

@@ -1,0 +1,30 @@
+---
+title: "Using the capr CLI"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using the capr CLI}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r}
+library(capR)
+script <- system.file("exec", "capr", package = "capR")
+stopifnot(file.exists(script))
+script
+```
+
+Portable automation invokes the wrapper with `Rscript`:
+
+```sh
+Rscript /path/to/capr digest \
+  --input orders.csv --output artifacts --label orders --budget 500
+Rscript /path/to/capr run-fixtures --output capr-conformance.json
+```
+
+The wrapper accepts CSV/JSON files, calls public APIs, emits deterministic JSON,
+and rejects arbitrary R source. See `docs/cli.md` for exit codes.

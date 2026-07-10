@@ -1,0 +1,42 @@
+{
+  "schema": "cap.digest_patch.v1",
+  "patchId": "cap-patch-cap-digest-basic-table-sample-k10",
+  "baseDigestId": "cap-digest-basic-table",
+  "baseFingerprint": "structure_v1:orders-1000x4",
+  "budgetDelta": { "estimated": 300, "used": 180 },
+  "operations": [
+    {
+      "op": "add_selected_field",
+      "fieldId": "f1:table@sample#k10",
+      "fieldBlock": "<field id=\"f1:table@sample#k10\" trust=\"data\" level=\"1\">\n1. order_id=<data>A001</data>, customer_id=<data>C001</data>, amount=<data>12.5</data>\n2. order_id=<data>A002</data>, customer_id=<data>C002</data>, amount=<data>19.0</data>\n</field>"
+    },
+    {
+      "op": "remove_available_on_request",
+      "fieldId": "f1:table@sample#k10"
+    }
+  ],
+  "manifestRows": [
+    {
+      "fieldId": "f1:table@sample#k10",
+      "fieldLabel": "Sample rows",
+      "sourceType": "table",
+      "timing": "interactive",
+      "trust": "data",
+      "exec": "local_scan",
+      "level": 1,
+      "selected": true,
+      "rejectedReason": null,
+      "estimatedCost": 300,
+      "actualCost": 180,
+      "priorValue": 0.8,
+      "renderMethod": "table_sample_k10_v1",
+      "redacted": false,
+      "ok": true,
+      "warnings": [],
+      "errorClass": null,
+      "elapsedMs": 0,
+      "fingerprint": "structure_v1:orders-1000x4",
+      "tokenizer": "heuristic_v1"
+    }
+  ]
+}

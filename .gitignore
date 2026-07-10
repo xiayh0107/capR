@@ -1,0 +1,12 @@
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rcheck/
+capR_*.tar.gz
+lib/
+schema-artifacts/
+interop-artifacts/
+conformance-artifacts/
+__pycache__/
+*.pyc

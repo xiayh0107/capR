@@ -1,17 +1,27 @@
 # Changelog
 
-All notable repository changes are recorded here.
-
-## Unreleased
+## 1.0.0 - 2026-07-10
 
 ### Added
 
-- Documentation-first capR repository baseline.
-- Project charter, architecture, API, implementer handbook, adapter guidance, roadmap, and architecture decision records.
-- GitHub issue and pull request templates for adapter and specification-alignment work.
+- Deterministic adapter objects, S3 bridge, registry lifecycle, ambiguity
+  failures, provenance pinning, host policy, and bounded structural fallback.
+- Stable table-family path for `data.frame`, `tbl_df`, and `data.table`.
+- CAP-Digest text=v1 rendering/parsing, canonical manifest and artifact I/O,
+  redaction-before-rendering, guarded extraction, and deterministic planning.
+- Contract-response validation, pure follow-up gate, typed digest patch
+  materialization/application, and fail-closed table-basic Pack hosting.
+- Reusable adapter contract suite and offline CAP-Digest v1.0 L0-L3 runner.
+- Strict Draft 2020-12 schema harness and independent structural
+  interoperability/comparison harness.
+- `capr` CLI, user/adapter vignettes, release artifact packager, manifest
+  validator, and cross-platform workflows.
+- Pinned CAP-Digest `cap-digest-v1.0.0` resources with per-file SHA-256
+  provenance.
 
 ### Scope
 
-- No R package runtime code has been added.
-- No CAP-Digest conformance claim is made.
-- No upstream CAP schema, fixture, grammar, or finding code is modified.
+- Conformance is limited to the published v1.0 fixtures and `table` source
+  family.
+- Remote/credentialed extraction, CAP-Core semantics, arbitrary-object
+  conformance, and scientific correctness are not claimed.

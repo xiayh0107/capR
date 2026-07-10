@@ -1,0 +1,132 @@
+{
+  "schema": "cap.negative_validation_cases.v1",
+  "cases": [
+    {
+      "name": "unknown evidence",
+      "response": {
+        "claims": [
+          {
+            "id": "claim-unknown",
+            "text": "This cites a field that does not exist.",
+            "evidence": ["f1:table@unknown#field"]
+          }
+        ],
+        "evidence": [],
+        "warnings": [],
+        "requests": []
+      },
+      "validation": {
+        "schema": "cap.validation_result.v1",
+        "digestId": "cap-digest-basic-table",
+        "fingerprint": "structure_v1:orders-1000x4",
+        "ok": false,
+        "errors": [
+          {
+            "code": "evidence_unknown_field",
+            "message": "Evidence field is not present in DigestManifest.fields.",
+            "fieldId": "f1:table@unknown#field",
+            "path": "evidence"
+          }
+        ],
+        "warnings": [],
+        "normalizedResponse": {
+          "claims": [
+            {
+              "id": "claim-unknown",
+              "text": "This cites a field that does not exist.",
+              "evidence": ["f1:table@unknown#field"]
+            }
+          ],
+          "evidence": [],
+          "warnings": [],
+          "requests": []
+        }
+      }
+    },
+    {
+      "name": "rejected interactive evidence",
+      "response": {
+        "claims": [
+          {
+            "id": "claim-sample",
+            "text": "This cites sample rows before follow-up gate approval.",
+            "evidence": ["f1:table@sample#k10"]
+          }
+        ],
+        "evidence": [],
+        "warnings": [],
+        "requests": []
+      },
+      "validation": {
+        "schema": "cap.validation_result.v1",
+        "digestId": "cap-digest-basic-table",
+        "fingerprint": "structure_v1:orders-1000x4",
+        "ok": false,
+        "errors": [
+          {
+            "code": "evidence_rejected_field",
+            "message": "Evidence field is present in the manifest but was not selected into digest text.",
+            "fieldId": "f1:table@sample#k10",
+            "path": "evidence"
+          }
+        ],
+        "warnings": [],
+        "normalizedResponse": {
+          "claims": [
+            {
+              "id": "claim-sample",
+              "text": "This cites sample rows before follow-up gate approval.",
+              "evidence": ["f1:table@sample#k10"]
+            }
+          ],
+          "evidence": [],
+          "warnings": [],
+          "requests": []
+        }
+      }
+    },
+    {
+      "name": "selected evidence missing from text",
+      "digestTextFile": "../digest-text-negative/manifest-missing-selected-field.txt",
+      "response": {
+        "claims": [
+          {
+            "id": "claim-columns",
+            "text": "This cites selected column evidence that is absent from text.",
+            "evidence": ["f1:table@columns#compact"]
+          }
+        ],
+        "evidence": [],
+        "warnings": [],
+        "requests": []
+      },
+      "validation": {
+        "schema": "cap.validation_result.v1",
+        "digestId": "cap-digest-basic-table",
+        "fingerprint": "structure_v1:orders-1000x4",
+        "ok": false,
+        "errors": [
+          {
+            "code": "evidence_missing_from_text",
+            "message": "Evidence field is selected in the manifest but missing from digest text.",
+            "fieldId": "f1:table@columns#compact",
+            "path": "evidence"
+          }
+        ],
+        "warnings": [],
+        "normalizedResponse": {
+          "claims": [
+            {
+              "id": "claim-columns",
+              "text": "This cites selected column evidence that is absent from text.",
+              "evidence": ["f1:table@columns#compact"]
+            }
+          ],
+          "evidence": [],
+          "warnings": [],
+          "requests": []
+        }
+      }
+    }
+  ]
+}

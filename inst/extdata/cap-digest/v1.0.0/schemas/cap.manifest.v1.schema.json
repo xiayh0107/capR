@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.manifest.v1.schema.json",
+  "title": "CAP-Digest Manifest v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema", "digestId", "source", "versions", "budget", "fingerprint", "fields"],
+  "properties": {
+    "schema": { "const": "cap.manifest.v1" },
+    "digestId": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["uri", "sourceType", "label"],
+      "properties": {
+        "uri": { "type": "string", "minLength": 1 },
+        "sourceType": { "type": "string", "minLength": 1 },
+        "label": { "type": ["string", "null"] }
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["cap", "text", "fields", "manifest"],
+      "properties": {
+        "cap": { "type": "string" },
+        "text": { "type": "string" },
+        "fields": { "type": "string" },
+        "manifest": { "type": "string" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["requested", "estimated", "used", "tokenizer"],
+      "properties": {
+        "requested": { "type": "integer", "minimum": 0 },
+        "estimated": { "type": "integer", "minimum": 0 },
+        "used": { "type": "integer", "minimum": 0 },
+        "tokenizer": { "type": "string" }
+      }
+    },
+    "fingerprint": { "type": "string" },
+    "fields": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fieldRow" }
+    }
+  },
+  "$defs": {
+    "fieldRow": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "fieldId",
+        "fieldLabel",
+        "sourceType",
+        "timing",
+        "trust",
+        "exec",
+        "level",
+        "selected",
+        "rejectedReason",
+        "estimatedCost",
+        "actualCost",
+        "priorValue",
+        "renderMethod",
+        "redacted",
+        "ok",
+        "warnings",
+        "errorClass",
+        "elapsedMs",
+        "fingerprint",
+        "tokenizer"
+      ],
+      "properties": {
+        "fieldId": {
+          "type": "string",
+          "pattern": "^f1:[a-z][a-z0-9_]*@[a-z][a-z0-9_]*(?:[-_][a-z0-9_]+)*#[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+        },
+        "fieldLabel": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "timing": { "enum": ["assemble", "interactive"] },
+        "trust": { "enum": ["code", "derived", "data"] },
+        "exec": { "enum": ["local_cheap", "local_scan", "remote_query", "unsafe"] },
+        "level": { "type": "integer", "minimum": 1 },
+        "selected": { "type": "boolean" },
+        "rejectedReason": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "enum": [
+                "over_budget",
+                "lower_value",
+                "policy_blocked",
+                "interactive_only",
+                "exec_not_allowed",
+                "level_superseded",
+                "source_not_supported",
+                "field_validation_failed"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^x_[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+            }
+          ]
+        },
+        "estimatedCost": { "type": "integer", "minimum": 0 },
+        "actualCost": { "type": "integer", "minimum": 0 },
+        "priorValue": { "type": ["number", "null"] },
+        "renderMethod": { "type": ["string", "null"] },
+        "redacted": { "type": "boolean" },
+        "ok": { "type": "boolean" },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "errorClass": { "type": ["string", "null"] },
+        "elapsedMs": { "type": ["integer", "null"], "minimum": 0 },
+        "fingerprint": { "type": ["string", "null"] },
+        "tokenizer": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

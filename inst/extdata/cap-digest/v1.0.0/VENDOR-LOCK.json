@@ -1,0 +1,488 @@
+{
+  "schema": "capr.vendor_lock.v1",
+  "upstream": {
+    "repository": "https://github.com/xiayh0107/cap-docs.git",
+    "tag": "cap-digest-v1.0.0",
+    "commit": "d7890d4449107a88faed0e0c653d3751b57575f2",
+    "releaseRoot": "release-artifacts/cap-digest-v1.0.0",
+    "status": "stable"
+  },
+  "acquiredAt": "2026-07-10",
+  "fileCount": 79,
+  "files": [
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/MANIFEST.json",
+      "destination": "MANIFEST.json",
+      "bytes": 3851,
+      "sha256": "3d843ffb4e89e9fe3b5eb61be7b6c6ce52fd87966fcdcb75a90222bf5274c8e1"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/MANIFEST.md",
+      "destination": "MANIFEST.md",
+      "bytes": 3586,
+      "sha256": "d6f03364e7a8150496704efed08ee42aba2fb25bbbecf8faa0a59c5192bc593b"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/README.md",
+      "destination": "README.md",
+      "bytes": 870,
+      "sha256": "d9070310f72ef42087734690c99d255632f2796d1847cb2714a92925b1b73cef"
+    },
+    {
+      "source": "LICENSE",
+      "destination": "UPSTREAM-LICENSE",
+      "bytes": 1067,
+      "sha256": "ff55f96a53aaa9f26730c5c0ffb0fa27bbd9ba2825ff2cb056f0d4243961e2c9"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/capps/CAPP-0008-cap-digest-stable-entry-gates.md",
+      "destination": "capps/CAPP-0008-cap-digest-stable-entry-gates.md",
+      "bytes": 2475,
+      "sha256": "943ba61d9ecd57e4ae945056bdbf43d5575fe5d7ecd968cddf4f91db85bfa759"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/capps/CAPP-0009-cap-digest-v1.0.0-stable-release.md",
+      "destination": "capps/CAPP-0009-cap-digest-v1.0.0-stable-release.md",
+      "bytes": 2881,
+      "sha256": "5c356a12f47e27827153b9bbbff6f948bcf8ddf40abd834f3373b4f2f6bb336b"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/basic-table/expected-digest.txt",
+      "destination": "fixtures/basic-table/expected-digest.txt",
+      "bytes": 748,
+      "sha256": "dc76c62ec48124ba167c8fb5686e226b73a2d58cc19be32f643824adcccdb320"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/basic-table/expected-manifest.json",
+      "destination": "fixtures/basic-table/expected-manifest.json",
+      "bytes": 2274,
+      "sha256": "ea33dfeb27fcd909d35f701ddd2d29e005ac3f74301839813221e93a28ad8831"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/basic-table/expected-validation.json",
+      "destination": "fixtures/basic-table/expected-validation.json",
+      "bytes": 841,
+      "sha256": "858e8dd8964a5d0e3f7119590779c318c49ef8a962b8295d23dbc0566cbd0028"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/basic-table/negative-validation.json",
+      "destination": "fixtures/basic-table/negative-validation.json",
+      "bytes": 3816,
+      "sha256": "9ac224926b6475bdfa98ccab802a9f5731623cef475a03043b801e28ebc779bb"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/basic-table/policy.json",
+      "destination": "fixtures/basic-table/policy.json",
+      "bytes": 269,
+      "sha256": "1fbc467df33de51f6dd0b63f106df4bfae27a74325aa2dc14aaf721b0b8e37f7"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/basic-table/source.json",
+      "destination": "fixtures/basic-table/source.json",
+      "bytes": 401,
+      "sha256": "2fc1f862de9ac5e96d6f695660257a0949808e539257af09d6b8c3c5a146c69c"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/digest-text-negative/README.md",
+      "destination": "fixtures/digest-text-negative/README.md",
+      "bytes": 590,
+      "sha256": "be384828bf1ef404c8ad65830796de530c83f3fa2caaf9c2321795906cc1f1b2"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/digest-text-negative/duplicate-field-id.txt",
+      "destination": "fixtures/digest-text-negative/duplicate-field-id.txt",
+      "bytes": 294,
+      "sha256": "9f2f5289ba8c6b6a0e56724b98eebc6b487e643a6d2353a307ce0aa6a6e7b89b"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/digest-text-negative/invalid-field-id.txt",
+      "destination": "fixtures/digest-text-negative/invalid-field-id.txt",
+      "bytes": 208,
+      "sha256": "41edc52ec064b95ef6eca60b31c1b04183fe8f98c227f2ed4971ef72c62a4eb8"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/digest-text-negative/manifest-missing-selected-field.txt",
+      "destination": "fixtures/digest-text-negative/manifest-missing.txt",
+      "bytes": 208,
+      "sha256": "a1427a689f32918b4c2da3a40557d32861f5a4cba79ddc95d9ce3b503481626b"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/digest-text-negative/unclosed-data-fence.txt",
+      "destination": "fixtures/digest-text-negative/unclosed-data-fence.txt",
+      "bytes": 224,
+      "sha256": "1624e445c6218bca0f051b90df1b35edd26887c9b62d78b59c8a3d99cddc8f5a"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/digest-text-negative/unknown-text-field.txt",
+      "destination": "fixtures/digest-text-negative/unknown-text-field.txt",
+      "bytes": 410,
+      "sha256": "6bde34813b7c04446b204941721a8366ff4e48bf7aa4bc6654d3bb5ac520ee46"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/README.md",
+      "destination": "fixtures/followup-basic/README.md",
+      "bytes": 533,
+      "sha256": "20964d704da37f7862b9dce642d5fb23c2a17a7399809fe2568f293aa6841cb5"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/expected-gate-approved.json",
+      "destination": "fixtures/followup-basic/expected-gate-approved.json",
+      "bytes": 1323,
+      "sha256": "8847ed60690d94420d848a76bde833c440a07c17300237eb2f76c130c319b0f7"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/expected-gate-stale.json",
+      "destination": "fixtures/followup-basic/expected-gate-stale.json",
+      "bytes": 839,
+      "sha256": "2dc0834258a713d3718b7d079e64842372b75f2a3e2757481fad1909bc193a51"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/expected-gate.json",
+      "destination": "fixtures/followup-basic/expected-gate.json",
+      "bytes": 204,
+      "sha256": "a6c3add50b0be851124a621dd59d5d9e83665155f572c350a0c14085e018d3cf"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/expected-patch.json",
+      "destination": "fixtures/followup-basic/expected-patch.json",
+      "bytes": 1335,
+      "sha256": "a71fee771a788d1868c4eafd8ef7cd3269fbe33ed0d41d10638904a55394966b"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/expected-validation-approved.json",
+      "destination": "fixtures/followup-basic/expected-validation-approved.json",
+      "bytes": 458,
+      "sha256": "0ac8ba5b37ef3808605017aa8a50add363240158594b2eb57b5f0090563f3210"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/policy.json",
+      "destination": "fixtures/followup-basic/policy.json",
+      "bytes": 294,
+      "sha256": "6314796406182cf93e94bce170627229197d629724efb6b6f6f3871abe233d7e"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/request-approved.json",
+      "destination": "fixtures/followup-basic/request-approved.json",
+      "bytes": 231,
+      "sha256": "e35a876049a6e6aba074550f77d55a30667b6689ae9719e1fe50f5fa744c487c"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/response.json",
+      "destination": "fixtures/followup-basic/response.json",
+      "bytes": 395,
+      "sha256": "eddb0b904d04b2245238986d2dd7822aff2e04b81b15dc4441cdb2f3bd1e00ec"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/followup-basic/source.json",
+      "destination": "fixtures/followup-basic/source.json",
+      "bytes": 557,
+      "sha256": "2800199ac7d8e45fcc089f57d44d2134889940c95c808f9d37351a739153842d"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/pack-table-basic/README.md",
+      "destination": "fixtures/pack-table-basic/README.md",
+      "bytes": 331,
+      "sha256": "4944fb0a3b7cc912f529f7af33cc24539a851a98ab70e061bc536d8547bef237"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/pack-table-basic/expected-pack-report.json",
+      "destination": "fixtures/pack-table-basic/expected-pack-report.json",
+      "bytes": 418,
+      "sha256": "520acf8c8e8d23abf95136dfc9c8c88f726054d05ade018bd4c29db12260158e"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/pack-table-basic/expected-pack.json",
+      "destination": "fixtures/pack-table-basic/expected-pack.json",
+      "bytes": 267,
+      "sha256": "4948d14b4147480c0f785ede9a8ea80ad186c3f7f91236ef8098816a0ff1feb6"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/security-adversarial/README.md",
+      "destination": "fixtures/security-adversarial/README.md",
+      "bytes": 526,
+      "sha256": "0a9e163f298517b4de2d2aa7d9808ec2af755186eb37de7ef8c8e43596b01578"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/security-adversarial/policy.json",
+      "destination": "fixtures/security-adversarial/policy.json",
+      "bytes": 232,
+      "sha256": "6561b1014880fcf2d2a9ebd40f3e213c62b6a760863504abcecdeda415eb5648"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/security-adversarial/renderer-failure-manifest.json",
+      "destination": "fixtures/security-adversarial/renderer-failure-manifest.json",
+      "bytes": 1760,
+      "sha256": "0f36ad8810e76c8aa4679213b210e1aa92c36f4bb0291d0945e701ab79971613"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/fixtures/security-adversarial/source.json",
+      "destination": "fixtures/security-adversarial/source.json",
+      "bytes": 463,
+      "sha256": "cedba04c6639d19ad71c5cfcb447f95543cb2168ca0c6dfc525bbc9ba20f23d7"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/packs/table-basic/CAP.md",
+      "destination": "packs/table-basic/CAP.md",
+      "bytes": 1581,
+      "sha256": "8f4c20d6465773833e4564eb4d620395d77171fbf05bdf270c38952a84b78358"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/packs/table-basic/fields/columns-compact.yaml",
+      "destination": "packs/table-basic/fields/columns-compact.yaml",
+      "bytes": 368,
+      "sha256": "9493c78e03479d587475118527a9b35e9838665fd3bf5aa713b22c60c8c1de5f"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/packs/table-basic/fields/sample-k10.yaml",
+      "destination": "packs/table-basic/fields/sample-k10.yaml",
+      "bytes": 372,
+      "sha256": "fbc9a6dea27ad5cef943f56c0e5534c2c32db0f6c09a7c13cefb832f063caf0d"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/packs/table-basic/fields/shape.yaml",
+      "destination": "packs/table-basic/fields/shape.yaml",
+      "bytes": 330,
+      "sha256": "29b39437043b3a368e28eb43984339d4287619a95a4cb8ad9d3ca1f5cf877d94"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/packs/table-basic/redactors/sensitive-name.md",
+      "destination": "packs/table-basic/redactors/sensitive-name.md",
+      "bytes": 419,
+      "sha256": "10081818d5633848cc47ad211823ad46655a432b7cd3976dd80ad0366062e303"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/packs/table-basic/renderers/table-sample-k10.md",
+      "destination": "packs/table-basic/renderers/table-sample-k10.md",
+      "bytes": 412,
+      "sha256": "c8b050b8183aa0368a55b7546e2e6158d3f6f60a1de815cba5b465cf094b36b6"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/reference-version.txt",
+      "destination": "reference-version.txt",
+      "bytes": 432,
+      "sha256": "16e1ce952c24c659926007ac607d87b6df134f8e11a43f38bcd0154a2b04ec05"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/release-notes.md",
+      "destination": "release-notes.md",
+      "bytes": 847,
+      "sha256": "f71c45d27a0b36d67366807b78b8c766d3978652952c6403300cd0886a45d26d"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/reports/digest-conformance-report.json",
+      "destination": "reports/digest-conformance-report.json",
+      "bytes": 552,
+      "sha256": "2c376f21e7f2afe65fbe6bea080485e7508e74b1cd557989952c159da07018c6"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/reports/digest-interop-comparison.json",
+      "destination": "reports/digest-interop-comparison.json",
+      "bytes": 511,
+      "sha256": "232824a24b923852937e2b5a64e20d87b0453b9f77f1507fe192c016cf3cdaed"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/reports/digest-interop-independent-structural.json",
+      "destination": "reports/digest-interop-independent-structural.json",
+      "bytes": 1928,
+      "sha256": "ff165d4ccd5df820e265633d13af8fa0ddd29c5fdbc6cebc80911d64b6ea8416"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/reports/digest-interop-reference.json",
+      "destination": "reports/digest-interop-reference.json",
+      "bytes": 1016,
+      "sha256": "7083b606ee33b1c0d2fdc8edf408b11ddef16e1a361b3960c093f07cbee75bb9"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.conformance_report.v1.schema.json",
+      "destination": "schemas/cap.conformance_report.v1.schema.json",
+      "bytes": 1185,
+      "sha256": "db843f029d48930c1d67f867cc10e760b759d859f03f958728a76a7a0db6ca9e"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.contract_response.v1.schema.json",
+      "destination": "schemas/cap.contract_response.v1.schema.json",
+      "bytes": 1839,
+      "sha256": "32ec5d48f5670bb395d7dce757b5fd0cb0e92e27aba5e5cd2ab099f0619aa483"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.digest.v1.schema.json",
+      "destination": "schemas/cap.digest.v1.schema.json",
+      "bytes": 988,
+      "sha256": "81aab1ce5c2a94af4e31e5a8b39526666f4f89f25debc5f023556b3897dd8ff4"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.digest_pack.v1.schema.json",
+      "destination": "schemas/cap.digest_pack.v1.schema.json",
+      "bytes": 1080,
+      "sha256": "6122d8ca78eb5efb1eebd3f82441a127a89a0b1760fa2e3e4482bdf519c5d329"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.digest_patch.v1.schema.json",
+      "destination": "schemas/cap.digest_patch.v1.schema.json",
+      "bytes": 2036,
+      "sha256": "a1508999343971909fa0c787925e98794673384d1004b351fccefa72fd804122"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.field.v1.schema.json",
+      "destination": "schemas/cap.field.v1.schema.json",
+      "bytes": 1839,
+      "sha256": "96fc0dbba8e334d9bc9c7033f8b853d29167d4f83744820b9fa0b97437464c56"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.field_catalog.v1.schema.json",
+      "destination": "schemas/cap.field_catalog.v1.schema.json",
+      "bytes": 888,
+      "sha256": "acea793d1a9caee6d4bc64308a03b31feea169ede5b30dd8f61d79cba1c0f8f2"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.gate_result.v1.schema.json",
+      "destination": "schemas/cap.gate_result.v1.schema.json",
+      "bytes": 1849,
+      "sha256": "ab76986bfd73736bea1ed6f4a6bb436da18a1544b3da35634e032457fa6d010b"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.manifest.v1.schema.json",
+      "destination": "schemas/cap.manifest.v1.schema.json",
+      "bytes": 3930,
+      "sha256": "5a9e8a6ebe14e24e8950b326f87e6451fea68ed3674ca85c780c5b808e00caba"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.pack_conformance_report.v1.schema.json",
+      "destination": "schemas/cap.pack_conformance_report.v1.schema.json",
+      "bytes": 1185,
+      "sha256": "46dbbe816cfa61b0991122f399ff5504ac772f2515b1a36cbe69c1b9b794a3fe"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/schemas/cap.validation_result.v1.schema.json",
+      "destination": "schemas/cap.validation_result.v1.schema.json",
+      "bytes": 1238,
+      "sha256": "d319f7f359c6f3242bc212e96363bdd385d12ead7338df0c6b6906331276bf29"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/CONFORMANCE-v1.0.md",
+      "destination": "specs/digest/CONFORMANCE-v1.0.md",
+      "bytes": 1551,
+      "sha256": "a75fdac18fd0a9cf81189f289fc953f007d62a91a80af4affe29f519bc6c2413"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/FIXTURES-v1.0.md",
+      "destination": "specs/digest/FIXTURES-v1.0.md",
+      "bytes": 1941,
+      "sha256": "51cb6dfbf244474aeb0427e944c0fa67f217e73d2a6e92a1adf8404fcece845c"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/FOLLOWUP-GATE-v1.0.md",
+      "destination": "specs/digest/FOLLOWUP-GATE-v1.0.md",
+      "bytes": 1623,
+      "sha256": "11ad188f2a4f4b6152319d82e35e0ac4a538f201857aedfea89a387e55dcc3df"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/IMPLEMENTER-ADOPTION-v1.0.md",
+      "destination": "specs/digest/IMPLEMENTER-ADOPTION-v1.0.md",
+      "bytes": 1309,
+      "sha256": "1089cd38cf0273b6d3eaa1cfda30936c5c446885a24771957bfb0fc45c3d66d6"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/INTEROPERABILITY-v1.0.md",
+      "destination": "specs/digest/INTEROPERABILITY-v1.0.md",
+      "bytes": 1149,
+      "sha256": "a80ca73f4fd73b171da8105b4f286d12f8dc2bbfe26021013a4247470e309ff4"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/MAINTENANCE-v1.0.md",
+      "destination": "specs/digest/MAINTENANCE-v1.0.md",
+      "bytes": 1208,
+      "sha256": "d0102f58fe0d8608846db1f5d2b7eb2e7465bc346cfe6f141e01a181ba1c27aa"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/MANIFEST-EVIDENCE-v1.0.md",
+      "destination": "specs/digest/MANIFEST-EVIDENCE-v1.0.md",
+      "bytes": 1943,
+      "sha256": "ea52ae80e24d01ec744b49ea7f966abb7609d48a61c13db4d203b82825b694f5"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/PACK-COMPATIBILITY-v1.0.md",
+      "destination": "specs/digest/PACK-COMPATIBILITY-v1.0.md",
+      "bytes": 1172,
+      "sha256": "0d3922543dc3c288f0b5a28f5ccb1dbfed19ef1f2ceb0e35d63f46eab022c643"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/POST-RELEASE-ADOPTION-v1.0.md",
+      "destination": "specs/digest/POST-RELEASE-ADOPTION-v1.0.md",
+      "bytes": 1025,
+      "sha256": "e6083235ef9f05d14a7726032dc5ae84f9b09d05f9c4ff6ec6ec179bda77a6f3"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/REFERENCE-BEHAVIOR-v1.0.md",
+      "destination": "specs/digest/REFERENCE-BEHAVIOR-v1.0.md",
+      "bytes": 1492,
+      "sha256": "87db41224d4b35af948e396ae22f870c79c40f93a48a191307d9acc236d091d5"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/RELEASE-GATES-v1.0.md",
+      "destination": "specs/digest/RELEASE-GATES-v1.0.md",
+      "bytes": 1349,
+      "sha256": "8d53f579b6484997c95ef742b0429482febdcc54ab514a210a5be861ce04572b"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/SCHEMA-PACKAGE-v1.0.md",
+      "destination": "specs/digest/SCHEMA-PACKAGE-v1.0.md",
+      "bytes": 1569,
+      "sha256": "82fd4084597e9c73cd338fc34fa56095c54fe22e62adab8494cb9cc6979781ee"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/SECURITY-v1.0.md",
+      "destination": "specs/digest/SECURITY-v1.0.md",
+      "bytes": 1352,
+      "sha256": "68e01c517d1615ef01fd6f780a6c39873e952e5ffc7e9e0224aa8d09a58a082e"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/STABLE-SCOPE-v1.0.md",
+      "destination": "specs/digest/STABLE-SCOPE-v1.0.md",
+      "bytes": 2228,
+      "sha256": "b64fc0a60454b276a6e102c79aede6aaba03fffb483497fe0e10ed174fabc1f7"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/STABLE-TRACK.md",
+      "destination": "specs/digest/STABLE-TRACK.md",
+      "bytes": 1828,
+      "sha256": "54ce6b25cde2f0f1c16b87ef8dea9d69df6eaa5ad9f3e470480c7baa49f24560"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/TEXT-GRAMMAR-v1.0.md",
+      "destination": "specs/digest/TEXT-GRAMMAR-v1.0.md",
+      "bytes": 2087,
+      "sha256": "b0247f3dc4533618af40809c6bd6347bfeb770c7a4fe2cfe5bb7a95217be2fbd"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/VALIDATOR-CODES-v1.0.md",
+      "destination": "specs/digest/VALIDATOR-CODES-v1.0.md",
+      "bytes": 1170,
+      "sha256": "943ca21df1172c528acf29d464696cb3316bcfe0efd6e702d78d609bddc5c60e"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/reviews/2026-07-07-rc1-review.md",
+      "destination": "specs/digest/reviews/2026-07-07-rc1-review.md",
+      "bytes": 1035,
+      "sha256": "4a14d14ea99283802ee5de3e1a9d5db3a063f0dffc6da80aa1e0a966a06c93da"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/reviews/2026-07-07-second-source-type-decision.md",
+      "destination": "specs/digest/reviews/2026-07-07-second-source-type-decision.md",
+      "bytes": 723,
+      "sha256": "496b6b601987570e2b755af558bc7790d46c12d747d8f96173127b4fff2af00c"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/reviews/2026-07-07-capp-0008-stable-entry-disposition.md",
+      "destination": "specs/digest/reviews/capp-0008-disposition.md",
+      "bytes": 480,
+      "sha256": "2fbe025fd49aac885097395e1b00d32b76922c5ad1c4541f04969d645f58caae"
+    },
+    {
+      "source": "release-artifacts/cap-digest-v1.0.0/specs/digest/reviews/2026-07-07-capp-0009-stable-release-decision.md",
+      "destination": "specs/digest/reviews/capp-0009-release.md",
+      "bytes": 863,
+      "sha256": "426c087abcb8a7b13fb69b33c3594431f86d7da46f721b8cf2e03f5c9ee598e4"
+    }
+  ]
+}

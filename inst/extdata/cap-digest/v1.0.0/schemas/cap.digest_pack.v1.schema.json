@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.digest_pack.v1.schema.json",
+  "title": "CAP-Digest Pack Frontmatter v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "description", "cap", "source_types", "provides", "status"],
+  "properties": {
+    "schema": { "const": "cap.digest_pack.v1" },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "description": { "type": "string", "minLength": 24 },
+    "cap": { "type": "string", "minLength": 1 },
+    "source_types": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
+    "provides": { "type": "array", "items": { "enum": ["fields", "renderers", "redactors", "fixtures", "references", "assets"] }, "minItems": 1, "uniqueItems": true },
+    "status": { "enum": ["experimental", "draft", "active", "deprecated"] },
+    "compatibility": { "type": ["object", "null"] },
+    "trust_notes": { "type": ["string", "null"] },
+    "metadata": { "type": ["object", "null"] }
+  }
+}

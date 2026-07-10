@@ -1,0 +1,74 @@
+{
+  "claimedLevels": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "fixtures": [
+    {
+      "coveredBehaviors": [
+        "digest text version line",
+        "selected field anchors",
+        "DigestManifest selected and rejected rows",
+        "contract response evidence validation"
+      ],
+      "name": "fixtures/basic-table",
+      "ok": true,
+      "unsupportedFeatures": []
+    },
+    {
+      "coveredBehaviors": [
+        "duplicate field rejection",
+        "invalid field id rejection",
+        "unclosed data fence rejection",
+        "manifest/text mismatch findings"
+      ],
+      "name": "fixtures/digest-text-negative",
+      "ok": true,
+      "unsupportedFeatures": []
+    },
+    {
+      "coveredBehaviors": [
+        "requestable field lookup",
+        "fingerprint and budget gate inputs",
+        "digest patch shape"
+      ],
+      "name": "fixtures/followup-basic",
+      "ok": true,
+      "unsupportedFeatures": []
+    },
+    {
+      "coveredBehaviors": [
+        "pack metadata discovery",
+        "field id inventory",
+        "fail-closed executable code boundary"
+      ],
+      "name": "fixtures/pack-table-basic",
+      "ok": true,
+      "unsupportedFeatures": []
+    },
+    {
+      "coveredBehaviors": [
+        "source text escaping",
+        "sensitive-name masking",
+        "failed renderer manifest row"
+      ],
+      "name": "fixtures/security-adversarial",
+      "ok": true,
+      "unsupportedFeatures": []
+    }
+  ],
+  "implementation": {
+    "command": "independent fixture reader over published JSON/text artifacts",
+    "name": "cap_digest.independent_structural_adapter",
+    "version": "1.0.0-l0-l3"
+  },
+  "notes": [
+    "This adapter is independent of cap_digest Python modules.",
+    "It verifies the published fixture artifacts structurally and records no runtime extractor claim."
+  ],
+  "release": "cap-digest-v1.0.0",
+  "schema": "cap.digest.interop_report.v1",
+  "status": "stable"
+}

@@ -1,6 +1,6 @@
 # Implementer Guide
 
-## Build order
+## Implemented build order
 
 1. package skeleton and condition classes;
 2. adapter object validation;
@@ -17,7 +17,8 @@
 13. conformance and interoperability reports;
 14. release packaging.
 
-Do not start by adding many object-specific digest methods.
+The v1.0 code follows this order. New work must not add object-specific digest
+orchestration methods.
 
 ## Core loop
 

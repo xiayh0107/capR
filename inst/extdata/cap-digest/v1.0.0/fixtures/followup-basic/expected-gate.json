@@ -1,0 +1,11 @@
+{
+  "schema": "cap.gate_result.v1",
+  "decisions": [
+    {
+      "fieldId": "f1:table@sample#k10",
+      "allowed": true,
+      "reason": "allowed",
+      "patchSchema": "cap.digest_patch.v1"
+    }
+  ]
+}

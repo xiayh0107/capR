@@ -1,0 +1,90 @@
+{
+  "schema": "cap.manifest.v1",
+  "digestId": "cap-digest-basic-table",
+  "source": {
+    "uri": "fixture://basic-table/source.json",
+    "sourceType": "table",
+    "label": "orders"
+  },
+  "versions": {
+    "cap": "2026-07-05-draft",
+    "text": "v1",
+    "fields": "f1",
+    "manifest": "v1"
+  },
+  "budget": {
+    "requested": 500,
+    "estimated": 460,
+    "used": 160,
+    "tokenizer": "heuristic_v1"
+  },
+  "fingerprint": "structure_v1:orders-1000x4",
+  "fields": [
+    {
+      "fieldId": "f1:table@shape#base",
+      "fieldLabel": "Shape",
+      "sourceType": "table",
+      "timing": "assemble",
+      "trust": "code",
+      "exec": "local_cheap",
+      "level": 1,
+      "selected": true,
+      "rejectedReason": null,
+      "estimatedCost": 24,
+      "actualCost": 24,
+      "priorValue": 1.0,
+      "renderMethod": "table_shape_base_v1",
+      "redacted": false,
+      "ok": true,
+      "warnings": [],
+      "errorClass": null,
+      "elapsedMs": 0,
+      "fingerprint": "structure_v1:orders-1000x4",
+      "tokenizer": "heuristic_v1"
+    },
+    {
+      "fieldId": "f1:table@columns#compact",
+      "fieldLabel": "Columns",
+      "sourceType": "table",
+      "timing": "assemble",
+      "trust": "derived",
+      "exec": "local_cheap",
+      "level": 1,
+      "selected": true,
+      "rejectedReason": null,
+      "estimatedCost": 120,
+      "actualCost": 136,
+      "priorValue": 1.1,
+      "renderMethod": "table_columns_compact_v1",
+      "redacted": true,
+      "ok": true,
+      "warnings": ["values in api_token masked"],
+      "errorClass": null,
+      "elapsedMs": 0,
+      "fingerprint": "structure_v1:orders-1000x4",
+      "tokenizer": "heuristic_v1"
+    },
+    {
+      "fieldId": "f1:table@sample#k10",
+      "fieldLabel": "Sample rows",
+      "sourceType": "table",
+      "timing": "interactive",
+      "trust": "data",
+      "exec": "local_scan",
+      "level": 1,
+      "selected": false,
+      "rejectedReason": "interactive_only",
+      "estimatedCost": 300,
+      "actualCost": 0,
+      "priorValue": 0.8,
+      "renderMethod": null,
+      "redacted": false,
+      "ok": true,
+      "warnings": [],
+      "errorClass": null,
+      "elapsedMs": 0,
+      "fingerprint": "structure_v1:orders-1000x4",
+      "tokenizer": "heuristic_v1"
+    }
+  ]
+}

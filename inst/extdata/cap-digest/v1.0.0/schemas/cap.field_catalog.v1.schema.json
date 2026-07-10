@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cap-spec.org/schemas/cap.field_catalog.v1.schema.json",
+  "title": "CAP-Digest Field Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "catalogId", "sourceType", "versions", "fields"],
+  "properties": {
+    "schema": { "const": "cap.field_catalog.v1" },
+    "catalogId": { "type": "string", "minLength": 1 },
+    "sourceType": { "type": "string", "minLength": 1 },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cap", "fields", "catalog"],
+      "properties": {
+        "cap": { "type": "string" },
+        "fields": { "const": "f1" },
+        "catalog": { "const": "v1" }
+      }
+    },
+    "fields": {
+      "type": "array",
+      "items": { "$ref": "cap.field.v1.schema.json" },
+      "minItems": 1
+    }
+  }
+}

@@ -1,0 +1,44 @@
+---
+title: "Getting started with capR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with capR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+capR produces bounded CAP-Digest evidence from a table without a model
+provider, credentials, remote service, or network access.
+
+```{r}
+library(capR)
+
+orders <- data.frame(
+  order_id = c("A001", "A002"),
+  amount = c(12.5, 19),
+  api_token = c("sk_test_123", "sk_test_456"),
+  check.names = FALSE
+)
+digest <- cap_digest(orders, budget = 500, label = "orders")
+print(digest)
+cat(digest$text)
+```
+
+`api_token` values are masked before the columns renderer receives them.
+The sample field remains available only through validated and gated follow-up.
+
+```{r}
+selected <- vapply(
+  Filter(function(row) row$selected, digest$manifest$fields),
+  `[[`, character(1), "fieldId"
+)
+selected
+stopifnot(
+  "f1:table@shape#base" %in% selected,
+  !grepl("sk_test_123", digest$text, fixed = TRUE)
+)
+```
