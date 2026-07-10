@@ -20,6 +20,14 @@ info <- cap_vendor_info()
 verification <- cap_verify_vendor()
 report <- cap_run_fixtures()
 
+if (!report$ok) {
+  print(report)
+  failed <- Filter(function(check) !check$ok, report$checks)
+  for (check in failed) {
+    message(check$name, ": ", paste(unlist(check$problems), collapse = "; "))
+  }
+}
+
 stopifnot(
   verification$ok,
   identical(info$tag, "cap-digest-v1.0.0"),

@@ -60,6 +60,10 @@ test_that("conformance report covers every fixture exactly once", {
 })
 
 test_that("strict Draft 2020-12 harness validates fixtures", {
+  skip_if(
+    nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_")),
+    "external schema harness is enforced by its dedicated release gate"
+  )
   python <- python3_path()
   available <- system2(
     python,
@@ -98,6 +102,10 @@ test_that("strict Draft 2020-12 harness validates fixtures", {
 })
 
 test_that("independent harness agrees and detects corruption", {
+  skip_if(
+    nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_")),
+    "external interop harness is enforced by its dedicated release gate"
+  )
   python <- python3_path()
   script <- source_test_path(
     "tools", "interop-harness", "interop.py"
