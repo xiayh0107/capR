@@ -127,4 +127,3 @@ cap_verify_vendor <- function(root = capr_vendor_root()) {
     class = "capr_vendor_verification"
   )
 }
-

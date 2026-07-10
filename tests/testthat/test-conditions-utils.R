@@ -28,4 +28,3 @@ test_that("implementation conditions remain outside canonical CAP codes", {
   expect_true(all(grepl("^capr_", condition_classes)))
   expect_false(any(grepl("^CAP_", condition_classes)))
 })
-

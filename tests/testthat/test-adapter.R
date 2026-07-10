@@ -43,4 +43,3 @@ test_that("unbound symbolic contracts fail closed", {
     class = "capr_contract_unbound"
   )
 })
-

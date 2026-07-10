@@ -10,10 +10,10 @@
 | README.md | 662 | 1a324050d3538b0a004226787d15f22f4f88fe99d7a50cb6b51f11f9716bf84d |
 | fixture-summary/summary.json | 782 | 45d58f24887b3bef8b2e388b566d917f8151047c011e5dcf2185f8e644e8dc02 |
 | metadata/DESCRIPTION | 825 | 00ef9cd7df4fa35dc15c3863f377bfda504682937fe2729d9a108316076132c7 |
-| metadata/R-CMD-check.log | 2690 | 15a90abe6a2e0627c14468320c8a1e7ba07436ee03cbf73fc9d58b9c8f3de7e3 |
+| metadata/R-CMD-check.log | 2689 | 9031c348a9e6db4cc349b95ee756ce49cb8a72e3eeddb00e1e3a4970e8c1ef82 |
 | metadata/RELEASE.json | 889 | 431212a5abb3c761946d30d0ae9ef42cb17a29047cd4d5d6048b0ea98f1999fe |
 | metadata/environment.json | 219 | b0112fc20840ae36063891c104852217abf0cd5b96484c3f7a89e2647585870e |
-| metadata/sessionInfo.txt | 738 | c0c64e69166d091698b4c3811dc946c32dae126ffaf10c2ebaec7b620728064a |
+| metadata/sessionInfo.txt | 732 | bca03e2d4677be0bcd932331d4a9a415033a5f316cb23a00e627eeb9b0ef5576 |
 | package/capR_1.0.0.9000.tar.gz | 112594 | 09837b85e83ecda69bf15ea2f3d63ac2f5b409e14c1a16443f59d4f6bee1205e |
 | reports/capr-digest-conformance.json | 5214 | e7d0b75c9828abe7b41d7c0e00ccb3f27fa47d17ca39d7b7a5f48c32b945a354 |
 | reports/capr-interop-comparison.json | 499 | 1157eb3ccc02b00df5920bd07e718b12ddcbcee294f4373515e80be5049b1e89 |

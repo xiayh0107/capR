@@ -18,4 +18,3 @@ the Draft 2020-12 meta-validator, validates all canonical JSON fixtures and
 capR-emitted artifacts, and proves that intentionally invalid in-memory cases
 are rejected. Updating the validator requires a reviewed requirements update,
 a complete fixture run, and release evidence regeneration.
-

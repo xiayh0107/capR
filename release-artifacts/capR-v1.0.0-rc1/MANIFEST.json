@@ -11,7 +11,7 @@
     {
       "path": "MANIFEST.md",
       "bytes": 1624,
-      "sha256": "f4083957c18a59734386bc4636b18fd14f71b51fb4d6a473253a46475aed95b8"
+      "sha256": "71065cc7ae1bc5b1d6fa11dee3c66c5fc4713802b5f9d156ec5b2b7d42da132d"
     },
     {
       "path": "README.md",
@@ -30,8 +30,8 @@
     },
     {
       "path": "metadata/R-CMD-check.log",
-      "bytes": 2690,
-      "sha256": "15a90abe6a2e0627c14468320c8a1e7ba07436ee03cbf73fc9d58b9c8f3de7e3"
+      "bytes": 2689,
+      "sha256": "9031c348a9e6db4cc349b95ee756ce49cb8a72e3eeddb00e1e3a4970e8c1ef82"
     },
     {
       "path": "metadata/RELEASE.json",
@@ -45,8 +45,8 @@
     },
     {
       "path": "metadata/sessionInfo.txt",
-      "bytes": 738,
-      "sha256": "c0c64e69166d091698b4c3811dc946c32dae126ffaf10c2ebaec7b620728064a"
+      "bytes": 732,
+      "sha256": "bca03e2d4677be0bcd932331d4a9a415033a5f316cb23a00e627eeb9b0ef5576"
     },
     {
       "path": "package/capR_1.0.0.9000.tar.gz",

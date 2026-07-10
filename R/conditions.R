@@ -62,4 +62,3 @@ capr_condition_fields <- function(condition) {
   }
   condition[setdiff(names(condition), c("message", "call", "parent"))]
 }
-

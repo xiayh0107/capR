@@ -21,4 +21,3 @@ python3 tools/interop-harness/interop.py \
   --vendor-root inst/extdata/cap-digest/v1.0.0 \
   --output-dir schema-artifacts/interop
 ```
-
