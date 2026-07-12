@@ -43,7 +43,8 @@ capr_patch_manifest_row <- function(field, candidate, outcome,
       list()
     },
     errorClass = if (outcome$ok) NULL else outcome$error_class,
-    elapsedMs = if (outcome$ok) 0L else outcome$elapsed_ms,
+    # Canonical patch rows follow the same timing normalization as manifests.
+    elapsedMs = 0L,
     fingerprint = digest$fingerprint,
     tokenizer = digest$manifest$budget$tokenizer
   )
@@ -97,6 +98,7 @@ cap_patch <- function(digest, gate_result, source, adapter = NULL,
   capr_validate_policy(policy)
   adapter <- capr_patch_adapter(digest, source, adapter, registry)
   context <- list(...)
+  context$.capr_snapshot_cache <- capr_new_snapshot_cache(source, adapter)
   context$label <- context$label %||% digest$source$label
   context$uri <- context$uri %||% digest$source$uri
   context$sensitive_name_patterns <- context$sensitive_name_patterns %||%

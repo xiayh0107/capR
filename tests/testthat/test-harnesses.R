@@ -1,7 +1,12 @@
 build_interop_artifacts <- function(root) {
   table <- fixture_table("followup-basic")
   policy <- cap_policy(max_budget = 500, max_followup_budget = 340)
-  digest <- cap_digest(table, budget = 500, policy = policy)
+  digest <- cap_digest(
+    table,
+    budget = 500,
+    policy = policy,
+    fingerprint = fixture_fingerprint("followup-basic")
+  )
   cap_write_artifacts(digest, file.path(root, "digest"))
   validation <- cap_validate_response(
     digest,
@@ -10,7 +15,13 @@ build_interop_artifacts <- function(root) {
   cap_write_artifacts(validation, file.path(root, "validation"))
   gate <- cap_gate(digest, validation, policy = policy)
   cap_write_artifacts(gate, file.path(root, "gate"))
-  patch <- cap_patch(digest, gate, table, policy = policy)
+  patch <- cap_patch(
+    digest,
+    gate,
+    table,
+    policy = policy,
+    fingerprint = fixture_fingerprint("followup-basic")
+  )
   cap_write_artifacts(patch, file.path(root, "patch"))
   cap_write_artifacts(
     cap_pack_conformance_report(cap_load_pack()),

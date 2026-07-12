@@ -17,7 +17,8 @@ cap_new_adapter(
   source_ref,
   field_catalog,
   fingerprint,
-  bindings
+  bindings,
+  implementation_spec = list()
 )
 }
 \arguments{
@@ -39,6 +40,9 @@ cap_new_adapter(
 
 \item{bindings}{Named \code{extractors}, \code{redactors}, and
 \code{renderers} maps.}
+
+\item{implementation_spec}{Optional JSON-safe implementation metadata used
+to pin generated adapters whose closures capture family or probe specs.}
 }
 \value{
 A validated \code{capr_adapter} object.

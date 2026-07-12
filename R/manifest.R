@@ -70,11 +70,9 @@ cap_build_manifest <- function(digest_id, source_ref, fingerprint, catalog,
       ok = if (failed) FALSE else TRUE,
       warnings = if (selected) as.list(unname(outcome$warnings)) else list(),
       errorClass = if (failed) outcome$error_class else NULL,
-      elapsedMs = if (candidate$selected) {
-        if (identical(source_ref$sourceType, "table")) 0L else outcome$elapsed_ms
-      } else {
-        0L
-      },
+      # Canonical evidence must not vary with scheduler or machine timing.
+      # Runtime timing remains available in materialization outcomes.
+      elapsedMs = 0L,
       fingerprint = fingerprint,
       tokenizer = rendered$tokenizer
     )

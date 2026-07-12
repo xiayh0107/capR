@@ -1,0 +1,234 @@
+---
+title: "capR 情景化复杂对象：Nested"
+subtitle: "测序平台收到嵌套 payload 时，先看结构，不泄露叶节点"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Nested}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(
+    identical(digest$source$sourceType, source_type),
+    identical(sort(selected), sort(expected)),
+    identical(digest$adapter$metadata$maturity, "experimental"),
+    identical(digest$adapter$metadata$conformance_claim, "none")
+  )
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：中心实验室的 API 响应还不能摊平
+
+你负责接收三个测序中心的 QC API。每个 job 都有批次信息、样本列表和可选的嵌套
+告警；样本列表的字段还在迭代，直接 `unnest()` 会把不同版本的响应硬塞进同一张表。
+现在要先回答一个较窄的问题：**这个响应的层级和子节点类型是什么？** 叶节点值暂时
+不能进入审计 Digest，因为其中可能有样本号或内部批次号。
+
+## 构造一个脱敏前的响应
+
+```{r create-nested-object}
+sequencing_response <- list(
+  job = list(
+    center = "CENTER_SECRET_NOT_DISCLOSED",
+    assay = "RNA-seq",
+    options = list(trim_adapters = TRUE, reference = "REF_SECRET")
+  ),
+  samples = list(
+    list(id = "SAMPLE_SECRET_001", qc = list(reads = 1200000L, passed = TRUE)),
+    list(id = "SAMPLE_SECRET_002", qc = list(reads = 980000L, passed = FALSE))
+  ),
+  alerts = list(list(code = "LOW_COMPLEXITY", details = list(severity = "high")))
+)
+
+local_topology <- data.frame(
+  root_children = length(sequencing_response),
+  sample_records = length(sequencing_response$samples),
+  has_alert_branch = "alerts" %in% names(sequencing_response)
+)
+local_topology
+```
+
+这里的 `local_topology` 只是工作流自己的导航信息；它不是把 payload 交给模型。真正
+给 capR 的对象仍然是完整响应，由 adapter 决定哪些 metadata 可以披露。
+
+## 生成结构证据
+
+```{r nested-digest}
+nested_digest <- assert_descriptor(
+  cap_digest(
+    sequencing_response,
+    adapter = cap_nested_adapter(),
+    budget = 900,
+    label = "sequencing API response"
+  ),
+  "nested"
+)
+
+stopifnot(
+  !grepl("CENTER_SECRET_NOT_DISCLOSED", nested_digest$text, fixed = TRUE),
+  !grepl("SAMPLE_SECRET_001", nested_digest$text, fixed = TRUE),
+  grepl("leaf_value_omitted", nested_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  evidence = c("container paths", "leaf types and lengths", "leaf values"),
+  included = c(TRUE, TRUE, FALSE),
+  reason = c("needed to choose a parser", "bounded structural metadata", "payload policy")
+)
+```
+
+Digest 可以告诉你 `$samples` 下面还有多少层、哪些节点是 list、叶子是什么类型；它
+不会把 `SAMPLE_SECRET_001` 或 `CENTER_SECRET_NOT_DISCLOSED` 写入 artifact。这个区别让
+接收方可以先选择 schema 版本，再决定是否需要后续的受控字段披露。
+
+## 连续 Agent 会话：从“先看形状”到“决定是否展开”
+
+前面的调用展示了静态结果。真实接入时，capR 位于 agent 和 R 对象之间：agent 先拿到
+最便宜的 overview，再提出一个结构问题；宿主校验请求、让 Gate 做决定，最后由用户
+决定是否重新生成更宽的 Digest。下面把这段对话完整跑一遍。
+
+### Turn 0：用户只允许 agent 先看最小上下文
+
+```{r nested-agent-turn-0}
+agent_digest_0 <- cap_digest(
+  sequencing_response,
+  question = "这个 API 响应是否包含可变深度的样本和告警分支？",
+  adapter = cap_nested_adapter(),
+  budget = 150,
+  policy = agent_policy,
+  label = "agent turn 0: nested overview"
+)
+
+stopifnot(identical(
+  selected_field_ids(agent_digest_0),
+  "f1:nested@overview#compact"
+))
+```
+
+### Turn 1：agent 请求结构，但不能自行扩大权限
+
+```{r nested-agent-turn-1}
+agent_response_1 <- list(
+  claims = list(list(
+    id = "overview",
+    text = "我看到这是一个嵌套响应；需要知道子容器层级才能选择解析器。",
+    evidence = list("f1:nested@overview#compact")
+  )),
+  evidence = list(),
+  warnings = list(),
+  requests = list(list(
+    fieldId = "f1:nested@structure#compact",
+    level = 1L,
+    budget = 240L,
+    reason = "请提供有界的容器路径和子节点类型。"
+  ))
+)
+
+turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+stopifnot(
+  turn_1$validation$ok,
+  identical(turn_1$gate$overallDecision, "denied"),
+  identical(turn_1$gate$requests[[1]]$decision, "not_available")
+)
+
+data.frame(
+  speaker = c("agent", "capR Gate"),
+  action = c("claim overview + request structure", "deny: descriptor fields are assemble-time"),
+  evidence_added = c("none", "none")
+)
+```
+
+这里的 `not_available` 不是失败：它告诉 agent“这个 adapter 不支持无授权的隐式
+follow-up”。agent 不能把 request 当成已获得的结构，也不能自己调用 `str()` 或递归
+读取对象。
+
+### Turn 2：用户同意更宽的 metadata，agent 再次作答
+
+```{r nested-agent-turn-2}
+agent_digest_2 <- cap_digest(
+  sequencing_response,
+  question = "用户批准查看完整的有界拓扑和安全语义。",
+  adapter = cap_nested_adapter(),
+  budget = 800,
+  policy = agent_policy,
+  label = "agent turn 2: nested structure"
+)
+
+agent_response_2 <- list(
+  claims = list(list(
+    id = "topology",
+    text = "响应包含 job、samples 和 alerts 分支；叶节点值仍未披露。",
+    evidence = list(
+      "f1:nested@structure#compact",
+      "f1:nested@semantics#compact"
+    )
+  )),
+  evidence = list(), warnings = list(), requests = list()
+)
+turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+stopifnot(turn_2$validation$ok, identical(agent_digest_0$fingerprint,
+                                           agent_digest_2$fingerprint))
+
+data.frame(
+  turn = c(0L, 1L, 2L),
+  state = c("overview disclosed", "structure request denied", "user-approved fresh Digest"),
+  agent_can_claim = c("kind/length", "nothing new", "bounded topology and omission policy")
+)
+```
+
+复杂对象 adapter 的三个 descriptor 字段都标为 `assemble`，所以本轮不会伪造
+`cap_patch()`；需要真正的 follow-up materialization 时，应使用 stable table 的
+Gate/Patch 流程或另写声明了 interactive capability 的专用 adapter。这种限制正是
+capR 让 agent 持续交互仍然保持可审计的地方。
+
+## 情景决策：什么时候继续用 Nested
+
+| 现场问题 | 选择 |
+| --- | --- |
+| API、配置或 JSON 的父子关系还在变化 | `cap_nested_adapter()` |
+| 每行都已经是稳定字段，只想看列和 shape | stable table adapter |
+| 需要读取某个样本值或 JSON leaf | 另设有 policy、预算和 Gate 的专用 adapter |
+| 对象里有 environment、function 或外部 URL | Nested 保持 opaque，不递归也不打开资源 |
+
+Nested 描述的是拓扑，不是 JSON 内容哈希。即使两个响应的叶节点值改变，只要有界结构
+metadata 没变，它们的 metadata fingerprint 也可能相同。完整边界见
+[复杂对象边界矩阵](../docs/adapters/complex-object-families.md)；十类对象的导航见
+[复杂对象全景](complex-object-workflow.Rmd)。

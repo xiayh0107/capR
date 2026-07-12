@@ -1,0 +1,888 @@
+---
+title: "capR 复杂对象全景：十类结构与安全适配"
+subtitle: "为什么需要这些对象、它们保存什么，以及 metadata-only Digest 能说明什么"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 复杂对象全景：十类结构与安全适配}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+options(width = 110)
+library(capR)
+```
+
+## 阅读目标 {-}
+
+`data.frame` 很重要，但真实 R 工作流经常还要保存层级、多个轴、表间关系、时间索引、
+空间坐标、网络拓扑、相互对齐的实验矩阵、模型状态、绘图声明，或指向数据库和文件的
+实时引用。这些对象之所以“复杂”，通常不是因为类名长，而是因为**行和列已经不足以
+表达其不变量、行为或存储边界**。
+
+本文系统回答四个问题：
+
+1. 为什么 R 生态会形成这些复杂对象；
+2. 工程上可以把它们归纳成哪十个主要家族；
+3. capR 1.1 development 中十个 experimental adapter 分别描述什么；
+4. metadata-only Digest 的安全边界、硬限界和不能推出的结论是什么。
+
+这是 experimental 功能教程，不扩大 capR 对稳定 table fixture scope 的合规声明。
+十个 constructor 都要求显式 opt in，均为 `maturity = "experimental"`、
+`conformance_claim = "none"`。
+
+## 调查方法与分类结论
+
+本轮调查于 2026-07-11 完成，采用三步法：先用 Exa Search 从 R 生态的对象类型、
+领域容器和惰性对象三个方向扩展检索面；再回到 R、CRAN、Bioconductor、r-spatial、
+igraph、tidymodels、Arrow 等项目的一手文档核验；最后逐项对照 capR 的实现、测试和
+现有安全边界。
+
+这里的十类是 **capR 的操作性分类**，不是 R 官方标准中的唯一分类，也不是互斥的
+本体论。分类依据是“使用者希望保留的主导语义”和“安全适配时的主要风险”，而不是
+只看最底层存储类型或继承链。同一个对象可以横跨多个维度，后文会说明如何选择。
+
+| 家族 | 主导语义问题 | 代表对象 | 为什么二维表不够 |
+| --- | --- | --- | --- |
+| Nested | 子对象如何嵌套、每层是什么 | list、list-column、JSON、XML | 层级深度和异质子节点不能自然压成等长列 |
+| Array | 有多少轴、如何存储 | matrix/array、Matrix、DelayedArray、HDF5Array | 轴、稀疏性和延迟后端是数据模型的一部分 |
+| Relational | 实体如何通过键或映射关联 | `capr_db_schema`、dm、MultiAssayExperiment | 多表关系和完整性约束不应被一次 join 抹掉 |
+| Temporal | 谁在什么时间被观测 | ts、zoo、xts、tsibble | 顺序、频率、间隔和 key 具有独立语义 |
+| Spatial | 值位于哪里、采用什么坐标系统 | sf、stars、GRanges | 几何、范围、CRS 和空间维度不是普通数值列 |
+| Graph | 节点如何连接 | igraph、tidygraph、phylo、treedata | 邻接和树拓扑比行顺序更重要 |
+| Scientific | assay、样本和特征如何严格对齐 | SummarizedExperiment、SCE、Seurat、phyloseq | 多矩阵与多层元数据必须共享领域不变量 |
+| Model | 对象处于什么拟合或预处理状态 | lm/glm、merMod、recipe、workflow、parsnip | 对象同时保存 schema、状态和可执行方法 |
+| Visual | 如何再次构建或渲染视觉结果 | ggplot、patchwork、grob、gtable、htmlwidget | 声明式图层、场景结构和浏览器依赖不是像素表 |
+| Live | 数据或状态实际位于哪里、何时执行 | lazy table、DBI/Arrow、environment、R6、externalptr | 对象可能只是远程资源或可变状态的代理 |
+
+## 为什么 R 中会有这些对象
+
+### 对象系统给基础容器附加领域契约
+
+R 的原子向量、list 和 environment 是许多高级对象的底座；S3、S4 与 R6 再为它们
+附加构造规则、方法和领域不变量。R 语言定义明确允许 list 的元素是任意 R 对象，
+而 environment 具有不复制的引用语义。S4 进一步用正式 class/slot 定义约束，R6
+则把可变对象和方法组织在同一个引用对象中。参见
+[R Language Definition](https://cran.r-project.org/doc/manuals/r-release/R-lang.html)、
+[base class 文档](https://stat.ethz.ch/R-manual/R-devel/library/base/html/class.html) 和
+[R6 官方文档](https://r6.r-lib.org/)。
+
+因此，“复杂对象”未必采用全新的物理存储。一个 `lm` 在底层可以是 list，一个 sf
+对象可以是带 geometry list-column 的 data frame，一个 Arrow Dataset 可以表现为
+R6 environment；真正重要的是对象承诺的语义和允许触发的行为。
+
+### 五个维度推动对象超出普通表格
+
+可以用五条轴理解复杂度从哪里产生：
+
+- **拓扑**：矩形、树、任意图、层级容器或多轴数组；
+- **对齐不变量**：主外键、时间 index/key、坐标、assay 行列映射；
+- **求值时机**：值已经在内存，还是 delayed、lazy、按块或远程执行；
+- **存储边界**：R 内存、磁盘文件、数据库、浏览器运行时或 native pointer；
+- **行为和可变性**：被动值、拟合/绘图声明，还是具有方法与共享状态的引用对象。
+
+这也是 capR 不把所有对象都递归 `str()`、`unclass()` 或 `as.data.frame()` 的原因：
+这些操作可能丢掉主导语义，也可能意外物化大数据、执行方法、读取凭据或触发 active
+binding。
+
+## 十个 adapter 的共同 contract
+
+十个 constructor 是：
+
+```text
+cap_nested_adapter()      cap_array_adapter()
+cap_relational_adapter()  cap_temporal_adapter()
+cap_spatial_adapter()     cap_graph_adapter()
+cap_scientific_adapter()  cap_model_adapter()
+cap_visual_adapter()      cap_live_adapter()
+```
+
+每个 adapter 都输出三个 assemble-time 字段：
+
+```text
+f1:<sourceType>@overview#compact
+f1:<sourceType>@structure#compact
+f1:<sourceType>@semantics#compact
+```
+
+- `overview` 给出 kind、host class 及有界计数或形状；
+- `structure` 给出有界的 component、schema、slot 或 attribute 名称；
+- `semantics` 记录领域关系，以及哪些内容没有被披露、遍历、物化或求值。
+
+`cap_visual_adapter()` 使用 `sourceType = "plot"`，`cap_live_adapter()` 使用
+`sourceType = "external"`；其余八个 source type 与家族名相同。所有字段都是
+assemble-time，`followup = FALSE`，所以它们不会复制 table 教程中的 Gate/Patch
+二次披露流程。
+
+## 十篇情景化单对象教程
+
+本文保留为分类和边界总览；真正要把某一类对象接入 agent 工作流时，请进入对应的
+单对象情景。每篇都构造一个可执行的最小对象，模拟 agent 的多轮对话：首轮 Digest、
+`claims/evidence/requests`、`cap_validate_response()`、`cap_gate()`、用户授权后的
+第二轮 Digest，以及最终带 field ID 的回答，而不是重复一份 API 参考：
+
+| 对象家族 | 情景化教程 |
+| --- | --- |
+| Nested | [测序 API 嵌套响应](nested-object-workflow.Rmd) |
+| Array | [单细胞矩阵分流](array-object-workflow.Rmd) |
+| Relational | [临床仓库 schema 评审](relational-object-workflow.Rmd) |
+| Temporal | [季度传感器交接](temporal-object-workflow.Rmd) |
+| Spatial | [田间试验 feature 交接](spatial-object-workflow.Rmd) |
+| Graph | [医院转诊网络审查](graph-object-workflow.Rmd) |
+| Scientific | [单细胞 assay 交接](scientific-object-workflow.Rmd) |
+| Model | [监管模型评审](model-object-workflow.Rmd) |
+| Visual | [dashboard 发布前审查](visual-object-workflow.Rmd) |
+| Live | [生产 service proxy 审查](live-object-workflow.Rmd) |
+
+这里必须区分三个容易混淆的说法：
+
+- **metadata-only 不等于完全不读取对象组件**。例如 adapter 可能取得一个 slot 或
+  endpoint 向量来确认 class、length 或 shape，inline JSON 也会被解析；
+- **不披露 payload** 指 payload 值不进入 Digest artifact；它不自动意味着对象名、
+  assay 名、字段名等 metadata 都是秘密；
+- **不求值或不物化** 才表示不调用预测、绘图、query、active binding，或不把延迟
+  数组整体载入内存。
+
+名称本身可能进入 metadata。不要把 token、病人身份或其他秘密写进 table、column、
+assay、layer、component 或 attribute 名称。
+
+## 支持范围总表
+
+| Adapter | 明确支持的 host | 进入 Digest 的主要 metadata | 不披露、不遍历或不执行的主要内容 |
+| --- | --- | --- | --- |
+| `cap_nested_adapter()` | plain list；带 list-column 的 data.frame/tibble；inline jsonlite `json` object/array；xml2 node/document | 容器路径、深度、类型、长度/维度、XML element 名 | leaf 值、XML 文本/属性值；函数/environment/language object 不遍历；外部 path/URL 不打开 |
+| `cap_array_adapter()` | base matrix/array；Matrix；DelayedArray；HDF5Array | rank、dimensions、storage kind、sparse entry count、delayed/file-backed flag | cell、dimname 值、backing path、delayed operation 和 HDF5 payload |
+| `cap_relational_adapter()` | `cap_db_schema()`；in-memory dm；MultiAssayExperiment | 声明式 table/column/type/PK/FK；dm table 名；experiment 名和 sample-map shape | table/key/sample 值、assay cell、DBI 连接和远程 query |
+| `cap_temporal_adapter()` | ts、zoo、xts、tbl_ts | observation/series count、dimensions、series/column 名；仅 base ts 的 regularity/frequency | observation 和 index 值；非 ts host 不猜测 regularity |
+| `cap_spatial_adapter()` | sf/sfc、in-memory stars、GRanges；拒绝 `stars_proxy` | feature count、shape、column/component/slot 名、sf geometry-column 名 | coordinate、bbox、CRS、range element 和 table cell；proxy file 不访问 |
+| `cap_graph_adapter()` | igraph、tbl_graph、phylo、treedata | vertex/edge/tip count、directedness、component/schema/attribute 名 | endpoint、tip label、attribute 值和可执行组件 |
+| `cap_scientific_adapter()` | SummarizedExperiment/RangedSE、SCE、Seurat、phyloseq | assay/layer/component 名、dimensions、metadata schema、slot 名 | assay cell、row/column/sample/feature identifier 值、metadata 值和 file-backed payload |
+| `cap_model_adapter()` | lm/glm、merMod、recipe、workflow、model_spec/model_fit | training schema、term/coefficient count、family/engine/mode、step/component class | formula/term expression、coefficient 名和值、training 值；不调用 summary/predict/fit/prep/bake/refit |
+| `cap_visual_adapter()` | ggplot、patchwork、grob、gtable、htmlwidget | data/layout schema、child/layer/geom/stat/dependency class、payload field 名 | build/draw/render、mapping/layer function、label/parameter/payload 值、JavaScript、hook、browser、pixel |
+| `cap_live_adapter()` | tbl_sql/tbl_lazy、Arrow、DBI/base connection、environment、R6、externalptr | cached lazy component class；connection slot/attribute 名；environment/R6/Arrow 的 kind/class/lock state | query render/execute/collect、connection traversal、credential；任何 environment binding 名和值、active binding、R6 method、pointer dereference |
+
+支持范围是 class 与 metadata schema 的组合，不是“带上某个 class 字符串就算支持”。
+由 `cap_db_schema()` 构造的 relational schema 会在使用时再次验证；伪造或被破坏的
+内部结构应 fail closed。调用方应传入 optional host 包创建的有效对象；手工 class
+spoof 不在支持范围，malformed internal metadata 会被拒绝。
+
+## 十类逐项解释
+
+### Nested：保存层级而不是过早摊平
+
+Nested 对象适合 API 响应、配置树、XML 文档以及“每行一个子数据集”的 list-column。
+`tidyr::nest()` 的核心就是把每组完整数据框放进 list-column；JSON object/array 和
+XML element tree 也天然具有父子关系。参见 [tidyr `nest()`](https://tidyr.tidyverse.org/reference/nest.html)、
+[jsonlite](https://search.r-project.org/CRAN/refmans/jsonlite/html/fromJSON.html) 和
+[xml2](https://xml2.r-lib.org/)。
+
+capR 保留“哪里有容器、节点是什么类型、长度或维度是多少”这类拓扑证据。leaf 值不
+进入 artifact；函数、environment、language object 和 external pointer 不会被递归。
+inline JSON 必须是单个 `jsonlite` `json` object/array 字符串，最大 1 MB；它会在本地
+有界解析，但 path/URL 型输入会被拒绝，不会当成外部资源打开。
+
+```{r nested-example}
+nested_object <- list(
+  experiment = list(
+    batch = "BATCH_VALUE_NOT_DISCLOSED",
+    qc = list(passed = TRUE)
+  ),
+  measurements = c(10, 20, 30)
+)
+
+nested_digest <- cap_digest(
+  nested_object,
+  adapter = cap_nested_adapter(),
+  budget = 800,
+  label = "nested experiment"
+)
+
+stopifnot(
+  identical(nested_digest$source$sourceType, "nested"),
+  !grepl("BATCH_VALUE_NOT_DISCLOSED", nested_digest$text, fixed = TRUE),
+  grepl("leaf_value_omitted", nested_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  source_type = nested_digest$source$sourceType,
+  leaf_value_disclosed = grepl(
+    "BATCH_VALUE_NOT_DISCLOSED",
+    nested_digest$text,
+    fixed = TRUE
+  )
+)
+```
+
+### Array：shape、轴与 storage 独立于 cell
+
+base R array 是带 `dim`/`dimnames` 的向量；Matrix 增加稠密/稀疏 class hierarchy；
+DelayedArray 和 HDF5Array 则让同一类数组接口可以面向大于内存的数据并延迟或分块
+计算。参见 [R `array`](https://stat.ethz.ch/R-manual/R-devel/library/base/html/array.html)、
+[Matrix](https://Matrix.R-forge.R-project.org/) 和
+[DelayedArray manual](https://bioconductor.org/packages/release/bioc/manuals/DelayedArray/man/DelayedArray.pdf)。
+
+capR 披露 rank、dimensions、storage kind、是否 sparse/delayed/file-backed；不索引
+cell，不输出 dimname 值或 backing path，也不触发 delayed operation。fingerprint 只
+覆盖这些 normalized metadata，所以相同 shape/storage、不同 cell 的两个数组可以得到
+相同 source URI。这是设计边界，不是 payload content hash。
+
+```{r array-fingerprint-example}
+array_a <- matrix(1:4, nrow = 2)
+array_b <- matrix(101:104, nrow = 2)
+
+array_digest_a <- cap_digest(
+  array_a,
+  adapter = cap_array_adapter(),
+  budget = 800
+)
+array_digest_b <- cap_digest(
+  array_b,
+  adapter = cap_array_adapter(),
+  budget = 800
+)
+
+same_metadata_fingerprint <- identical(
+  array_digest_a$source$uri,
+  array_digest_b$source$uri
+)
+stopifnot(same_metadata_fingerprint)
+
+data.frame(
+  same_shape = identical(dim(array_a), dim(array_b)),
+  same_cells = identical(unname(array_a), unname(array_b)),
+  same_metadata_fingerprint = same_metadata_fingerprint
+)
+```
+
+### Relational：声明关系，而不是连接数据库
+
+Relational 对象把不同实体保留在独立表中，通过 primary key、foreign key 或显式映射
+表达关系。dm 项目本身可组织本地表和数据库 lazy table；MultiAssayExperiment 用
+experiment 与 sample map 对齐多个 assay。当前 capR 只支持 in-memory dm。参见
+[dm](https://dm.cynkra.com/)、
+[dplyr two-table verbs](https://dplyr.tidyverse.org/articles/two-table.html) 和
+[MultiAssayExperiment](https://bioconductor.org/packages/release/bioc/html/MultiAssayExperiment.html)。
+
+`cap_db_schema()` 是完全内存内的声明构造器，不接受 DBI connection，不检查表内容，
+也不会联系数据库。adapter 输出 table/column/type/PK/FK metadata，并在 Digest 时重验
+对象结构；dm 和 MultiAssayExperiment 路径同样只保留有界关系 metadata。
+
+```{r relational-schema-example}
+declared_schema <- cap_db_schema(
+  tables = list(
+    customers = c(customer_id = "integer", region = "text"),
+    orders = c(
+      order_id = "integer",
+      customer_id = "integer",
+      amount = "double"
+    )
+  ),
+  primary_keys = list(
+    customers = "customer_id",
+    orders = "order_id"
+  ),
+  foreign_keys = list(list(
+    from_table = "orders",
+    from_columns = "customer_id",
+    to_table = "customers",
+    to_columns = "customer_id"
+  ))
+)
+
+relational_digest <- cap_digest(
+  declared_schema,
+  adapter = cap_relational_adapter(),
+  budget = 800
+)
+
+stopifnot(
+  identical(relational_digest$source$sourceType, "relational"),
+  grepl("customer_id", relational_digest$text, fixed = TRUE),
+  grepl("table_values_included", relational_digest$text, fixed = TRUE)
+)
+```
+
+列名和 key 定义属于 metadata，因此会出现；真正的 customer ID 或 order amount 不应
+被放入 `cap_db_schema()`。它描述 schema，不是装载数据的容器。
+
+Digest 入口会重验 canonical declaration，而不只相信 class。下面的伪造对象包含一个
+任意值；它必须在生成 artifact 之前 fail closed：
+
+```{r relational-schema-revalidation}
+malformed_schema <- structure(
+  list(
+    tables = list(list(
+      secret_value = "RELATIONAL_SPOOF_SECRET_NOT_DISCLOSED"
+    )),
+    primary_keys = list(),
+    foreign_keys = list()
+  ),
+  class = c("capr_db_schema", "list")
+)
+
+schema_error <- tryCatch(
+  cap_digest(
+    malformed_schema,
+    adapter = cap_relational_adapter(),
+    budget = 800
+  ),
+  error = function(error) error
+)
+
+stopifnot(inherits(schema_error, "capr_adapter_invalid"))
+data.frame(
+  artifact_created = inherits(schema_error, "cap_digest"),
+  failed_closed = inherits(schema_error, "capr_adapter_invalid")
+)
+```
+
+这项重验和对象上的 consistency seal 用来发现非 canonical 结构与构造后的变异，不是
+来源认证或秘密签名。seal 可以公开重算；调用方仍要负责确保合法的 table/column/type
+声明本身不含敏感内容。
+
+### Temporal：时间顺序是对象语义
+
+Temporal 对象把 observation 与 index、sampling interval 和 series/key 绑定。base
+`ts` 假设等间隔采样；zoo/xts 支持更一般的有序索引；tsibble 用 index、key 和
+interval 定义 tidy temporal data。参见 [R `ts`](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/ts.html)、
+[zoo vignette](https://cran.r-project.org/web/packages/zoo/vignettes/zoo.pdf) 和
+[tsibble](https://tsibble.tidyverts.org/)。
+
+capR 输出 observation/series count、dimensions 与有界 series/column 名。只有 base
+`ts` 路径报告 regular/frequency；zoo、xts 和 tbl_ts 的 regularity 保持 unknown，而
+不是通过读取 index 值自行推断。
+
+```{r temporal-example}
+quarterly_series <- stats::ts(
+  c(4.2, 4.4, 4.1, 4.8, 5.0, 5.1, 5.3, 5.2),
+  frequency = 4
+)
+
+temporal_digest <- cap_digest(
+  quarterly_series,
+  adapter = cap_temporal_adapter(),
+  budget = 800
+)
+
+stopifnot(
+  identical(temporal_digest$source$sourceType, "temporal"),
+  grepl('"frequency": 4', temporal_digest$text, fixed = TRUE),
+  grepl('"payload_values_included": false', temporal_digest$text, fixed = TRUE),
+  !grepl("4.2", temporal_digest$text, fixed = TRUE)
+)
+```
+
+### Spatial：位置、几何和范围不是普通数值
+
+Spatial 对象把属性与位置、geometry、CRS 或 genomic range 绑定。sf 遵循 Simple
+Features 模型，stars 面向多维时空 data cube，GRanges 面向基因组区间。参见
+[sf Simple Features](https://r-spatial.github.io/sf/articles/sf1.html)、
+[stars](https://r-spatial.github.io/stars/) 和
+[GenomicRanges](https://bioconductor.org/packages/release/bioc/html/GenomicRanges.html)。
+
+capR 只保留 feature count、dimensions、component/column/slot 名和 sf geometry-column
+名。实现可以取得容器或 range component 来确认长度，但不遍历或披露 coordinate、
+bbox、CRS 内容或 range element。`stars_proxy` 明确拒绝，以避免隐式读取 proxy-backed
+文件；只有 in-memory stars 在当前支持范围内。
+
+### Graph：计数不等于披露拓扑
+
+Graph 对象把分析中心从“第几行”转为“哪些节点通过哪些边连接”。igraph 保存 vertex、
+edge、direction 与 attribute；tidygraph 在 node table 与 edge table 之间提供统一语法；
+treeio 同时保留 phylogenetic tree 与异质注释。参见
+[igraph R interface](https://r.igraph.org/articles/igraph.html)、
+[tidygraph](https://tidygraph.data-imaginist.com/) 和
+[treeio](https://bioconductor.org/packages/release/bioc/html/treeio.html)。
+
+capR 输出 vertex/edge/tip count、directedness 和有界 component/schema/attribute 名。
+实现可能取得 endpoint 或 tip-label 向量以读取长度，但不会把 endpoint、tip label 或
+attribute 值写入 artifact。知道“5 个节点、5 条边”并不等于知道连接拓扑。
+
+### Scientific：对齐的 assay container
+
+Scientific experiment 容器把一个或多个 assay 与 feature、sample metadata 及领域结果
+严格对齐。SummarizedExperiment 协调矩阵 assays 与 row/column metadata；
+SingleCellExperiment 增加 reduced dimensions、size factor 等单细胞结构；phyloseq
+整合 abundance、sample、taxonomy 与 phylogenetic tree。参见
+[SummarizedExperiment](https://bioconductor.org/packages/release/bioc/html/SummarizedExperiment.html)、
+[SingleCellExperiment](https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html) 和
+[phyloseq](https://bioconductor.org/packages/release/bioc/html/phyloseq.html)。
+
+capR 可输出 assay/layer/component 名、dimensions、metadata field schema 和 slot 名。
+这些名称是 metadata，会被披露；不披露的是 assay cell、row/column/sample/feature
+identifier 值和 metadata 值，也不物化 file-backed assay。
+
+### Model：对象描述不等于执行模型
+
+Model 对象除系数外，通常还保存 terms、训练 schema、拟合状态、残差、preprocessing
+step 或 engine。`lm` 返回可供 predict/update 使用的拟合对象；parsnip 把 model
+specification 与 fit 分离；workflow 把 preprocessing、model 和 postprocessing 组合在
+一个对象中。参见 [R `lm`](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/lm.html)、
+[parsnip model specification](https://parsnip.tidymodels.org/reference/model_spec.html) 和
+[workflows](https://workflows.tidymodels.org/)。
+
+capR 输出 training shape/schema、term/coefficient count、family/engine/mode 以及有界
+step/component class。不披露 formula literal、term expression、coefficient 名和值或
+training value，也不会调用 `summary()`、`predict()`、`fit()`、`prep()`、`bake()`、
+`refit()`。
+
+```{r model-example}
+fitted_model <- stats::lm(mpg ~ wt + cyl, data = mtcars)
+
+model_digest <- cap_digest(
+  fitted_model,
+  adapter = cap_model_adapter(),
+  budget = 800
+)
+
+stopifnot(
+  identical(model_digest$source$sourceType, "model"),
+  grepl('"coefficient_count": 3', model_digest$text, fixed = TRUE),
+  !grepl("mpg ~ wt + cyl", model_digest$text, fixed = TRUE),
+  !grepl("(Intercept)", model_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  adapter = model_digest$adapter$metadata$id,
+  formula_literal_disclosed = grepl(
+    "mpg ~ wt + cyl",
+    model_digest$text,
+    fixed = TRUE
+  ),
+  predict_called = FALSE
+)
+```
+
+最后一列是由 adapter contract 和回归测试保证的行为边界，不是通过 monkey-patch
+`predict()` 得出的统计结果。
+
+### Visual：保存可重绘声明，而不是像素
+
+ggplot 保存 Grammar of Graphics 声明，grid 的 grob/viewport 保存场景结构，htmlwidget
+把 R 对象连接到 JavaScript/browser runtime。参见 [ggplot2](https://ggplot2.tidyverse.org/)、
+[R grid](https://stat.ethz.ch/R-manual/R-devel/library/grid/html/grid-package.html) 和
+[htmlwidgets](https://www.htmlwidgets.org/)。
+
+capR 输出有界 data/layout schema、child/layer/geom/stat/dependency class 与 payload
+field 名；不 build、draw 或 render，不执行 mapping、layer data function、JavaScript、
+hook，也不打开 browser。下面只构造 grob，不把它作为 chunk 最后一行，因此 knitr
+本身也不会绘制它。
+
+```{r visual-example}
+visual_object <- grid::textGrob("LABEL_VALUE_NOT_DISCLOSED")
+visual_digest <- cap_digest(
+  visual_object,
+  adapter = cap_visual_adapter(),
+  budget = 800
+)
+
+stopifnot(
+  identical(visual_digest$source$sourceType, "plot"),
+  !grepl("LABEL_VALUE_NOT_DISCLOSED", visual_digest$text, fixed = TRUE),
+  grepl('"rendered": false', visual_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  source_type = visual_digest$source$sourceType,
+  kind = "grob",
+  rendered_by_adapter = FALSE
+)
+```
+
+若只处理 ggplot 并需要四字段的 `data_schema`、`mapping`、`layers` 描述，应显式选择
+`cap_ggplot_adapter()`；它与覆盖多种 visual host 的三字段 `cap_visual_adapter()` 是
+不同 contract。完整对照见 `vignette("tidy-ggplot-workflow", package = "capR")`。
+
+### Live：代理、引用和外部状态保持 opaque
+
+dbplyr remote table 把操作延迟翻译成 SQL，直到 `collect()` 等动作才执行；Arrow
+Dataset 是跨文件数据集的 R6 proxy；environment 和 R6 具有引用语义。参见
+[dbplyr](https://dbplyr.tidyverse.org/)、
+[Arrow `open_dataset()`](https://arrow.apache.org/docs/r/reference/open_dataset.html) 和
+[R environments](https://cran.r-project.org/doc/manuals/r-release/R-lang.html)。
+
+capR 对 lazy table 只看 cached component/query/source class，对 connection 只看有界
+slot/attribute 名。environment、R6 和 Arrow frame 更严格：连 binding count/name 都不
+枚举，更不会读取 binding value、触发 active binding 或调用 method。
+
+```{r live-active-binding-example}
+active_binding_calls <- 0L
+live_object <- new.env(parent = emptyenv())
+live_object$api_token <- "LIVE_SECRET_NOT_DISCLOSED"
+makeActiveBinding("dangerous", function(value) {
+  active_binding_calls <<- active_binding_calls + 1L
+  stop("active binding must not run")
+}, live_object)
+
+live_digest <- cap_digest(
+  live_object,
+  adapter = cap_live_adapter(),
+  budget = 800
+)
+
+stopifnot(
+  identical(active_binding_calls, 0L),
+  identical(live_digest$source$sourceType, "external"),
+  !grepl("api_token", live_digest$text, fixed = TRUE),
+  !grepl("dangerous", live_digest$text, fixed = TRUE),
+  !grepl("LIVE_SECRET_NOT_DISCLOSED", live_digest$text, fixed = TRUE),
+  grepl('"binding_names_enumerated": false', live_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  active_binding_calls = active_binding_calls,
+  binding_names_enumerated = FALSE,
+  secret_disclosed = grepl(
+    "LIVE_SECRET_NOT_DISCLOSED",
+    live_digest$text,
+    fixed = TRUE
+  )
+)
+```
+
+## 一次可执行的十族巡检
+
+本 vignette 不安装包、不访问网络、不打开数据库，也不伪造 optional host class。七类
+核心示例只依赖 R 与 capR；spatial、graph、scientific 仅在相应真实 host package 已
+安装时执行。这样 package build 在最小环境中仍可复现，同时完整开发环境可以扩大
+覆盖面。
+
+```{r optional-package-availability}
+representative_optional_packages <- c(
+  "jsonlite", "Matrix", "DelayedArray", "dm", "zoo", "sf",
+  "igraph", "SummarizedExperiment", "recipes", "ggplot2",
+  "DBI", "arrow"
+)
+
+optional_availability <- data.frame(
+  package = representative_optional_packages,
+  installed = vapply(
+    representative_optional_packages,
+    requireNamespace,
+    quietly = TRUE,
+    FUN.VALUE = logical(1)
+  ),
+  row.names = NULL
+)
+optional_availability
+```
+
+先用一个共享 helper 验证 source type、三字段 contract、maturity 和 claim：
+
+```{r digest-index-helper}
+describe_complex_object <- function(label, object, adapter, expected_source) {
+  digest <- cap_digest(
+    object,
+    adapter = adapter,
+    budget = 800,
+    label = label
+  )
+
+  selected_fields <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`,
+    character(1),
+    "fieldId"
+  )
+  expected_fields <- paste0(
+    "f1:", expected_source, "@",
+    c("overview", "structure", "semantics"),
+    "#compact"
+  )
+
+  stopifnot(
+    identical(digest$source$sourceType, expected_source),
+    identical(sort(selected_fields), sort(expected_fields)),
+    identical(digest$adapter$metadata$maturity, "experimental"),
+    identical(digest$adapter$metadata$conformance_claim, "none")
+  )
+
+  list(
+    digest = digest,
+    index = data.frame(
+      object = label,
+      source_type = expected_source,
+      adapter = digest$adapter$metadata$id,
+      fields = length(selected_fields),
+      maturity = digest$adapter$metadata$maturity,
+      conformance_claim = digest$adapter$metadata$conformance_claim,
+      stringsAsFactors = FALSE
+    )
+  )
+}
+```
+
+七个无额外 host package 的对象：
+
+```{r core-family-tour}
+core_records <- list(
+  describe_complex_object(
+    "nested list", nested_object,
+    cap_nested_adapter(), "nested"
+  ),
+  describe_complex_object(
+    "base matrix", array_a,
+    cap_array_adapter(), "array"
+  ),
+  describe_complex_object(
+    "declared schema", declared_schema,
+    cap_relational_adapter(), "relational"
+  ),
+  describe_complex_object(
+    "base ts", quarterly_series,
+    cap_temporal_adapter(), "temporal"
+  ),
+  describe_complex_object(
+    "base lm", fitted_model,
+    cap_model_adapter(), "model"
+  ),
+  describe_complex_object(
+    "grid grob", visual_object,
+    cap_visual_adapter(), "plot"
+  ),
+  describe_complex_object(
+    "environment", live_object,
+    cap_live_adapter(), "external"
+  )
+)
+
+core_index <- do.call(
+  rbind,
+  lapply(core_records, function(record) record$index)
+)
+row.names(core_index) <- NULL
+core_index
+```
+
+三个条件执行的真实对象：
+
+```{r optional-family-tour}
+optional_records <- list()
+
+if (requireNamespace("sf", quietly = TRUE)) {
+  spatial_object <- sf::st_sf(
+    site = c("SITE_VALUE_A", "SITE_VALUE_B"),
+    geometry = sf::st_sfc(
+      sf::st_point(c(-73, 40)),
+      sf::st_point(c(-72, 41)),
+      crs = 4326
+    )
+  )
+  spatial_record <- describe_complex_object(
+    "sf features", spatial_object,
+    cap_spatial_adapter(), "spatial"
+  )
+  stopifnot(
+    !grepl("SITE_VALUE_A", spatial_record$digest$text, fixed = TRUE),
+    !grepl("-73", spatial_record$digest$text, fixed = TRUE)
+  )
+  optional_records[[length(optional_records) + 1L]] <- spatial_record
+}
+
+if (requireNamespace("igraph", quietly = TRUE)) {
+  graph_object <- igraph::make_ring(5, directed = TRUE)
+  graph_object <- igraph::set_vertex_attr(
+    graph_object,
+    "private_label",
+    value = paste0("NODE_VALUE_", seq_len(5))
+  )
+  graph_record <- describe_complex_object(
+    "igraph ring", graph_object,
+    cap_graph_adapter(), "graph"
+  )
+  stopifnot(
+    !grepl("NODE_VALUE_1", graph_record$digest$text, fixed = TRUE)
+  )
+  optional_records[[length(optional_records) + 1L]] <- graph_record
+}
+
+if (requireNamespace("SummarizedExperiment", quietly = TRUE)) {
+  assay_matrix <- matrix(
+    c(11, 12, 13, 14),
+    nrow = 2,
+    dimnames = list(
+      c("FEATURE_VALUE_A", "FEATURE_VALUE_B"),
+      c("SAMPLE_VALUE_A", "SAMPLE_VALUE_B")
+    )
+  )
+  scientific_object <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = assay_matrix)
+  )
+  scientific_record <- describe_complex_object(
+    "SummarizedExperiment", scientific_object,
+    cap_scientific_adapter(), "scientific"
+  )
+  stopifnot(
+    !grepl("FEATURE_VALUE_A", scientific_record$digest$text, fixed = TRUE),
+    !grepl("SAMPLE_VALUE_A", scientific_record$digest$text, fixed = TRUE)
+  )
+  optional_records[[length(optional_records) + 1L]] <- scientific_record
+}
+
+optional_index <- if (length(optional_records)) {
+  result <- do.call(
+    rbind,
+    lapply(optional_records, function(record) record$index)
+  )
+  row.names(result) <- NULL
+  result
+} else {
+  data.frame(
+    object = "No spatial/graph/scientific host package installed",
+    source_type = NA_character_,
+    adapter = NA_character_,
+    fields = NA_integer_,
+    maturity = NA_character_,
+    conformance_claim = NA_character_,
+    stringsAsFactors = FALSE
+  )
+}
+optional_index
+```
+
+“条件未执行”只说明当前 build environment 没有对应 Suggests package，不表示 adapter
+不支持该 host。相反，也不能用手工添加 class 的 list 代替真实 optional 对象；malformed
+internal metadata 必须被拒绝。
+
+## 重叠 class 与 adapter 选择
+
+十类不互斥，R 的继承链也不会自动告诉我们用户真正关心哪层语义：
+
+| 对象 | 可能看起来属于 | 选择依据 |
+| --- | --- | --- |
+| 带 list-column 的 tibble | table / nested | 要普通列证据用稳定 table；要子容器拓扑用 explicit nested |
+| `tbl_ts` | table / temporal | 要时间 index/key 语义用 explicit temporal |
+| sf | table / spatial | 要 geometry-column 与 feature 语义用 explicit spatial |
+| MultiAssayExperiment | relational / scientific | 当前由 relational adapter 描述 experiment 与 sample-map 关系 |
+| HDF5Array | array / live backing | 要 shape、delayed/file-backed 状态用 array；不会按 live object 读文件 |
+| patchwork | ggplot / visual composition | 要多 visual host 的共同 contract 用 visual；ggplot 专属四字段另选 ggplot adapter |
+| `xts` | zoo / temporal | 继承关系不改变其 temporal 主导语义 |
+| `glm` | lm / model | 选择 model，保留 family 与拟合状态而不执行方法 |
+| Arrow Dataset | R6 / live / tabular | remote/file proxy 与 binding opaque 边界优先，选择 live |
+
+所有十类默认都没有 built-in S3 bridge。最清楚的调用方式是显式传入 `adapter =`；宿主
+也可以有意识地注册 constructor。显式选择能防止 nested tibble 或 tbl_ts 悄悄退化为
+普通 table，也防止 lazy/live 对象落入可能物化数据的路径。
+
+### 选择速查
+
+先问“我希望 Digest 回答什么”，再选 adapter：
+
+| 主要问题 | 选择 |
+| --- | --- |
+| 只是 data.frame 的 shape、columns 与受控 sample | 稳定 table adapter，不在本十类中 |
+| 子容器在哪里、层级多深 | `cap_nested_adapter()` |
+| 有多少轴、是否 sparse/delayed/file-backed | `cap_array_adapter()` |
+| tables/experiments 之间有哪些 key 或映射 | `cap_relational_adapter()` |
+| observation、series、frequency 的时间语义 | `cap_temporal_adapter()` |
+| feature、geometry/range container 的空间语义 | `cap_spatial_adapter()` |
+| vertex/edge/tip count 与连接对象 schema | `cap_graph_adapter()` |
+| assay/layer 与 row/column metadata 如何对齐 | `cap_scientific_adapter()` |
+| fitted/preprocessing/workflow 状态 | `cap_model_adapter()` |
+| 未执行的绘图或 widget 声明 | `cap_visual_adapter()` |
+| lazy query、connection、environment、R6 或 pointer | `cap_live_adapter()` |
+
+如果真正需要的是 payload 值、模型预测、像素、坐标、完整 edge list 或远程 query 结果，
+这十个 metadata-only adapter 不是答案；应设计一个具有明确 policy、capability、预算和
+测试证据的专用 adapter，而不是扩大这些通用 descriptor 的权限。
+
+## 当前实现的硬限界
+
+下表记录 capR 1.1 development 当前实现值，便于审计和复现实验；它们不是 CAP 标准的
+通用常数，未来 experimental API 可能调整。截断与拒绝也要分开理解：前者返回明确的
+bounded descriptor，后者 fail closed。
+
+| 范围 | 当前限界 | 超限行为或说明 |
+| --- | --- | --- |
+| 公共 descriptor sanitizer | 字符串 160 字符；clean depth 6；每层 80 项；rendered JSON 5000 字符 | 清理或渲染阶段截断并标记 |
+| Nested | depth 4；nodes 80；每容器 children 20；名称 40；nested table columns 1000 | 拓扑截断；table 超过 1000 列或 inline JSON 超过 1,000,000 bytes 时拒绝 |
+| Array | rank 64；S4 slots 100；delayed seed recursion 8 | 非法 dimensions/rank、过多 slot 拒绝 |
+| `cap_db_schema()` | tables 200；columns/table 500；PK entries 200；FK entries 500；每组 key arity 500；identifier 最长 160 字符；type text 取 160 字符前缀并可附截断标记 | constructor 和 snapshot 重验均拒绝非法结构 |
+| Temporal / Spatial | dimension rank 64；class/name 50；S4 slots 100 | 名称有界；非法 shape 或过多 slot 拒绝 |
+| Graph / Scientific | component/class/schema name 50；rank 64；S4 slots 100 | 名称有界；非法 shape 或过多 slot 拒绝 |
+| Model / Visual / Live | component/schema 60；S4 slots 100 | 多余名称截断；过多 slot 拒绝 |
+| ggplot snapshot（Visual 内部） | columns 30；mappings 12；layers 20；labels/scales 12；theme elements 30；text 120 | 声明 metadata 截断；不求值 layer/mapping |
+
+限制只控制计算量和披露面，不能证明 host 对象本身有效。例如一个 graph 的 edge count
+合理，不代表拓扑在科学上正确；一个 model 的 training schema 存在，不代表没有数据
+泄漏、偏差或过拟合。
+
+## Fingerprint、contract 与不能推出的结论
+
+### Metadata fingerprint 不是 content hash
+
+十类 adapter 的 source fingerprint 覆盖 normalized metadata snapshot。前面的 matrix
+例子已经证明，未披露 cell 改变时 URI 可以保持不变。因此 fingerprint 适合验证
+descriptor freshness 和 adapter lifecycle，一般不能证明完整 payload 未变化。
+
+### Contract test 不是 CAP conformance
+
+`cap_test_adapter()` 可以检查 adapter 是否满足 capR extension contract，例如字段 ID、
+绑定、determinism 和 artifact shape；它不能证明 payload 正确、领域对象有效、统计结论
+正确，也不能把 `conformance_claim = "none"` 提升为 CAP conformance。
+
+### 四层“没有做”必须分别表达
+
+- **not disclosed**：某个值没有写入 artifact；
+- **not traversed**：没有递归进入某种容器或引用 frame；
+- **not materialized**：没有把 delayed/file-backed/lazy payload 载入本地；
+- **not evaluated**：没有调用 user code、method、hook、query、plot 或 active binding。
+
+把四层统称为“没有读”会掩盖实现细节，也会产生无法测试的过强承诺。因此本文和
+[复杂对象边界矩阵](../docs/adapters/complex-object-families.md) 使用按家族细分的措辞。
+
+### 这些 Digest 不能证明什么
+
+- 不能证明 payload content 完整、新鲜或未被修改；
+- 不能证明 database、Arrow Dataset 或 connection 的当前远程状态；
+- 不能证明模型预测、因果解释或科学结论正确；
+- 不能证明 graph topology、spatial geometry 或 assay cell 的值；
+- 不能证明 ggplot build 后的统计量或最终像素；
+- 不能把 component/schema 名称当作自动脱敏内容。
+
+## 调查来源地图
+
+下面按家族列出本轮调查使用的主要一手入口，便于继续追溯，而不是把本文当成各领域
+对象的完整参考手册。
+
+| 家族 | 官方来源入口 |
+| --- | --- |
+| R 对象系统 | [R Language Definition](https://cran.r-project.org/doc/manuals/r-release/R-lang.html)、[S4 `setClass`](https://stat.ethz.ch/R-manual/R-devel/library/methods/html/setClass.html)、[R6](https://r6.r-lib.org/) |
+| Nested | [tidyr nest](https://tidyr.tidyverse.org/reference/nest.html)、[jsonlite fromJSON](https://search.r-project.org/CRAN/refmans/jsonlite/html/fromJSON.html)、[xml2](https://xml2.r-lib.org/) |
+| Array | [R array](https://stat.ethz.ch/R-manual/R-devel/library/base/html/array.html)、[Matrix](https://Matrix.R-forge.R-project.org/)、[DelayedArray](https://bioconductor.org/packages/release/bioc/html/DelayedArray.html)、[HDF5Array](https://bioconductor.org/packages/release/bioc/html/HDF5Array.html) |
+| Relational | [dm](https://dm.cynkra.com/)、[dplyr two-table verbs](https://dplyr.tidyverse.org/articles/two-table.html)、[MultiAssayExperiment](https://bioconductor.org/packages/release/bioc/html/MultiAssayExperiment.html) |
+| Temporal | [R ts](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/ts.html)、[zoo](https://cran.r-project.org/package=zoo)、[tsibble](https://tsibble.tidyverts.org/) |
+| Spatial | [sf](https://r-spatial.github.io/sf/)、[stars](https://r-spatial.github.io/stars/)、[GenomicRanges](https://bioconductor.org/packages/release/bioc/html/GenomicRanges.html) |
+| Graph | [igraph](https://r.igraph.org/articles/igraph.html)、[tidygraph](https://tidygraph.data-imaginist.com/)、[treeio](https://bioconductor.org/packages/release/bioc/html/treeio.html) |
+| Scientific | [SummarizedExperiment](https://bioconductor.org/packages/release/bioc/html/SummarizedExperiment.html)、[SingleCellExperiment](https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html)、[phyloseq](https://bioconductor.org/packages/release/bioc/html/phyloseq.html) |
+| Model | [R lm](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/lm.html)、[parsnip](https://parsnip.tidymodels.org/)、[recipes](https://recipes.tidymodels.org/)、[workflows](https://workflows.tidymodels.org/) |
+| Visual | [ggplot2](https://ggplot2.tidyverse.org/)、[R grid](https://stat.ethz.ch/R-manual/R-devel/library/grid/html/grid-package.html)、[htmlwidgets](https://www.htmlwidgets.org/) |
+| Live | [DBI specification](https://dbi.r-dbi.org/articles/spec)、[dbplyr](https://dbplyr.tidyverse.org/)、[Arrow R](https://arrow.apache.org/docs/r/)、[R6](https://r6.r-lib.org/) |
+
+## 从本文带走什么
+
+- “复杂”来自拓扑、对齐不变量、求值时机、存储边界和行为，不来自 class 名本身。
+- 十类是面向 adapter 选择的工程分类；对象可以跨类，主导语义决定显式 opt-in。
+- metadata-only 允许披露有界名称、class、count 和 shape，但 payload、执行与远程访问
+  边界必须逐类表述。
+- 所有十类 adapter 都是 experimental、三字段、无 follow-up、无 CAP conformance
+  claim；stable table 路径仍是独立范围。
+- source fingerprint 只覆盖已披露 metadata，不能替代 content hash 或科学验证。
+- 若任务确实需要 payload 或执行行为，应另建受 policy 和 contract 约束的专用 adapter。
+
+建议先用 `vignette("quickstart", package = "capR")` 理解稳定 table 最小路径，再读
+`vignette("advanced-table-workflow", package = "capR")` 理解 Gate/Patch；ggplot 的专属
+四字段 contract 见 `vignette("tidy-ggplot-workflow", package = "capR")`。实现级边界与
+adapter authoring 分别见[复杂对象边界矩阵](../docs/adapters/complex-object-families.md)和
+[Writing an adapter](../docs/handbook/writing-adapters.md)。

@@ -26,6 +26,13 @@ The following remain optional:
 - `withr` and `callr` for test/development isolation boundaries;
 - `tibble` and `data.table` for table host compatibility, without creating
   new CAP source-family claims;
+- `dplyr` and `ggplot2` to construct representative optional grouped-table and
+  plot objects in tests and executable vignettes; the experimental adapters
+  inspect those objects without adding either package to runtime Imports;
+- the optional matrix, Bioconductor, tidy-modeling, spatial, graph/tree,
+  time-series, Arrow/DBI, XML, widget, and R6 packages listed in `Suggests` to
+  construct and verify their experimental host objects; ordinary table
+  digestion does not load them;
 - `jsonvalidate` for strict JSON Schema Draft 2020-12 CI and release checks.
 
 Strict schema validation is not performed on every `cap_digest()` call.

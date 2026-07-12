@@ -1,0 +1,180 @@
+---
+title: "capR 情景化复杂对象：Visual"
+subtitle: "仪表盘发布前检查图层声明，不执行浏览器、JavaScript 或绘图"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Visual}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：公共 dashboard 需要先过结构审查
+
+一个 dashboard 图对象可能包含数据、mapping、多个 layer、theme、grob 或 JavaScript
+依赖。发布前的安全审查只想知道“这是哪种视觉对象、包含多少子组件、是否会调用外部
+runtime”，不应该为了看结构就 build、draw 或打开浏览器。
+
+## 构造一个带敏感标题的视觉对象
+
+```{r create-visual}
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  dashboard_plot <- ggplot2::ggplot(
+    data.frame(day = 1:3, signal = c(2, 3, 4)),
+    ggplot2::aes(day, signal)
+  ) +
+    ggplot2::geom_line() +
+    ggplot2::labs(title = "DASHBOARD_SECRET_TITLE")
+  visual_kind <- "ggplot"
+} else {
+  dashboard_plot <- grid::textGrob("DASHBOARD_SECRET_TITLE")
+  visual_kind <- "grob"
+}
+
+data.frame(kind = visual_kind, rendering_requested = FALSE)
+```
+
+## 只描述可重绘声明
+
+```{r visual-digest}
+visual_digest <- assert_descriptor(
+  cap_digest(dashboard_plot, adapter = cap_visual_adapter(), budget = 900,
+             label = "dashboard release review"),
+  "plot"
+)
+
+stopifnot(
+  !grepl("DASHBOARD_SECRET_TITLE", visual_digest$text, fixed = TRUE),
+  grepl('"rendered": false', visual_digest$text, fixed = TRUE),
+  !grepl('"built": true', visual_digest$text, fixed = TRUE),
+  !grepl('"javascript_executed": true', visual_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  evidence = c("object/layer classes", "component schema", "title text", "pixels", "JavaScript/browser"),
+  included = c(TRUE, TRUE, FALSE, FALSE, FALSE)
+)
+```
+
+如果真正需要 ggplot 专属的四字段 `data_schema`、`mapping`、`layers`，请改用
+`cap_ggplot_adapter()`；本篇的 `cap_visual_adapter()` 使用十类对象共享的三字段
+contract，并覆盖 grob、gtable、patchwork 和 htmlwidget。
+
+## 连续 Agent 会话：从图层审查到“不要打开浏览器”
+
+dashboard agent 可以先问“这是几层图、有没有外部依赖”，然后很容易继续问“请把图
+渲染出来”。下面的第二个 request 会被 Gate 拦住；用户如果只批准 metadata，就重新
+生成完整 descriptor，让 agent 做发布前判断，而不是执行 draw/render。
+
+```{r visual-agent-session}
+agent_digest_0 <- cap_digest(
+  dashboard_plot,
+  question = "先判断图对象类型和规模，不渲染浏览器或 JavaScript。",
+  adapter = cap_visual_adapter(), budget = 150, policy = agent_policy,
+  label = "agent turn 0: visual overview"
+)
+stopifnot(identical(selected_field_ids(agent_digest_0),
+                    "f1:plot@overview#compact"))
+
+agent_response_1 <- list(
+  claims = list(list(
+    id = "visual-kind",
+    text = "这是一个可声明的视觉对象；需要 layer/schema 才能做发布审查。",
+    evidence = list("f1:plot@overview#compact")
+  )),
+  evidence = list(), warnings = list(),
+  requests = list(list(
+    fieldId = "f1:plot@structure#compact", level = 1L, budget = 240L,
+    reason = "请提供 layer/component schema，但不要 build、draw 或打开浏览器。"
+  ))
+)
+turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+stopifnot(turn_1$validation$ok,
+          identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+```
+
+```{r visual-agent-turn-2}
+agent_digest_2 <- cap_digest(
+  dashboard_plot,
+  question = "用户批准视觉 schema，但不批准像素、JavaScript 或浏览器执行。",
+  adapter = cap_visual_adapter(), budget = 800, policy = agent_policy,
+  label = "agent turn 2: visual schema"
+)
+agent_response_2 <- list(
+  claims = list(list(
+    id = "release-check",
+    text = "可以检查 layer/geom/schema；发布前仍需要单独的 render policy。",
+    evidence = list("f1:plot@structure#compact",
+                    "f1:plot@semantics#compact")
+  )),
+  evidence = list(), warnings = list(), requests = list()
+)
+turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+stopifnot(turn_2$validation$ok,
+          identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+data.frame(
+  speaker = c("agent", "capR Gate", "user/host", "agent"),
+  action = c("ask for layer schema", "deny render request", "approve metadata only", "make release checklist"),
+  browser_opened = FALSE,
+  javascript_executed = FALSE
+)
+```
+
+这正是 visual adapter 与渲染系统的分界：agent 可以持续询问“下一步审查什么”，但
+capR 不会把一段自然语言自动变成浏览器执行。
+
+## 情景决策
+
+| 现场问题 | 选择 |
+| --- | --- |
+| 发布前审查层数、组件和依赖 | `cap_visual_adapter()` |
+| 需要 ggplot 四字段声明 | `cap_ggplot_adapter()` |
+| 需要最终图像或浏览器截图 | 另设 render policy，不能把本 adapter 当像素 hash |
+| layer data 是函数或 hook | 保持不求值，另行审查执行权限 |
+
+视觉 Digest 不能证明最终像素、统计变换结果或浏览器安全；更多边界见
+[复杂对象边界矩阵](../docs/adapters/complex-object-families.md)。

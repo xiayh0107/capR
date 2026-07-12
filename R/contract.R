@@ -71,27 +71,31 @@ capr_contract_symbolic <- function(catalog) {
   invisible(TRUE)
 }
 
-capr_contract_probe_plan <- function(catalog, policy) {
+capr_contract_probe_plan <- function(catalog, policy, field_id = NULL) {
   budget <- sum(vapply(catalog$fields, function(field) {
     max(vapply(field$levels, `[[`, integer(1), "estimatedCost"))
   }, integer(1)))
   plan <- cap_select_fields(
     catalog,
     budget = budget,
-    policy = policy
+    policy = policy,
+    include_interactive = TRUE
   )
-  selected <- which(vapply(
-    plan$candidates,
-    function(candidate) isTRUE(candidate$selected),
-    logical(1)
-  ))
+  selected <- which(vapply(plan$candidates, function(candidate) {
+    isTRUE(candidate$authorization$allowed) &&
+      (is.null(field_id) || identical(candidate$field$id, field_id))
+  }, logical(1)))
   if (!length(selected)) {
     capr_abort(
       "capr_adapter_invalid",
-      "adapter contract probe could not select an assemble-time field"
+      "adapter contract probe could not select an authorized field",
+      field_id = field_id
     )
   }
-  keep <- selected[[1L]]
+  levels <- vapply(
+    plan$candidates[selected], `[[`, integer(1), "level"
+  )
+  keep <- selected[[which.max(levels)]]
   for (index in seq_along(plan$candidates)) {
     plan$candidates[[index]]$selected <- identical(index, keep)
     if (!identical(index, keep) &&
@@ -102,6 +106,14 @@ capr_contract_probe_plan <- function(catalog, policy) {
   plan$budget_estimated_selected <-
     plan$candidates[[keep]]$estimated_cost
   plan
+}
+
+capr_contract_probe_plans <- function(catalog, policy) {
+  ids <- vapply(catalog$fields, `[[`, character(1), "id")
+  stats::setNames(
+    lapply(ids, function(id) capr_contract_probe_plan(catalog, policy, id)),
+    ids
+  )
 }
 
 #' Run the reusable adapter contract suite
@@ -209,115 +221,131 @@ cap_test_adapter <- function(adapter, source, context = list()) {
     }),
     capr_contract_check("materialization_captures_outcomes", function() {
       current <- adapter$lifecycle$field_catalog(source, context)
-      plan <- capr_contract_probe_plan(current, policy)
-      result <- cap_materialize(
-        plan, adapter, source, policy, context
-      )
-      outcome <- result$outcomes[[1L]]
-      required <- c(
-        "ok", "warnings", "elapsed_ms", "actual_cost",
-        "redacted", "rendered"
-      )
-      if (length(setdiff(required, names(outcome)))) {
-        capr_abort(
-          "capr_adapter_invalid",
-          "materialization outcome is incomplete"
+      plans <- capr_contract_probe_plans(current, policy)
+      for (field_id in names(plans)) {
+        result <- cap_materialize(
+          plans[[field_id]], adapter, source, policy, context
         )
+        outcome <- result$outcomes[[field_id]]
+        required <- c(
+          "ok", "warnings", "elapsed_ms", "actual_cost",
+          "redacted", "rendered"
+        )
+        if (is.null(outcome) || length(setdiff(required, names(outcome)))) {
+          capr_abort(
+            "capr_adapter_invalid",
+            "materialization outcome is incomplete",
+            field_id = field_id
+          )
+        }
       }
     }),
     capr_contract_check("warnings_errors_timing_captured", function() {
       current <- adapter$lifecycle$field_catalog(source, context)
-      plan <- capr_contract_probe_plan(current, policy)
-      candidate <- Filter(
-        function(value) value$selected,
-        plan$candidates
-      )[[1L]]
-      contract <- candidate$field$contracts$extractor
-      original <- capr_adapter_binding(
-        adapter, "extractors", contract
-      )
-      warning_adapter <- adapter
-      warning_adapter$bindings$extractors[[contract]] <- function(...) {
-        warning("contract probe warning")
-        original(...)
-      }
-      warned <- cap_materialize(
-        plan, warning_adapter, source, policy, context
-      )$outcomes[[1L]]
-      if (!length(warned$warnings) ||
-          !is.integer(warned$elapsed_ms)) {
-        capr_abort(
-          "capr_adapter_invalid",
-          "extractor warnings or timing were not captured"
+      plans <- capr_contract_probe_plans(current, policy)
+      for (field_id in names(plans)) {
+        plan <- plans[[field_id]]
+        candidate <- Filter(
+          function(value) value$selected,
+          plan$candidates
+        )[[1L]]
+        contract <- candidate$field$contracts$extractor
+        original <- capr_adapter_binding(
+          adapter, "extractors", contract
         )
-      }
-      error_adapter <- adapter
-      error_adapter$bindings$extractors[[contract]] <- function(...) {
-        stop("contract probe error")
-      }
-      failed <- cap_materialize(
-        plan, error_adapter, source, policy, context
-      )$outcomes[[1L]]
-      if (failed$ok ||
-          !identical(failed$error_class, "extraction_error")) {
-        capr_abort(
-          "capr_adapter_invalid",
-          "extractor errors were not captured as failed fields"
-        )
+        warning_adapter <- adapter
+        warning_adapter$bindings$extractors[[contract]] <- function(...) {
+          warning("contract probe warning")
+          original(...)
+        }
+        warned <- cap_materialize(
+          plan, warning_adapter, source, policy, context
+        )$outcomes[[field_id]]
+        if (!length(warned$warnings) ||
+            !is.integer(warned$elapsed_ms)) {
+          capr_abort(
+            "capr_adapter_invalid",
+            "extractor warnings or timing were not captured",
+            field_id = field_id
+          )
+        }
+        error_adapter <- adapter
+        error_adapter$bindings$extractors[[contract]] <- function(...) {
+          stop("contract probe error")
+        }
+        failed <- cap_materialize(
+          plan, error_adapter, source, policy, context
+        )$outcomes[[field_id]]
+        if (failed$ok ||
+            !identical(failed$error_class, "extraction_error")) {
+          capr_abort(
+            "capr_adapter_invalid",
+            "extractor errors were not captured as failed fields",
+            field_id = field_id
+          )
+        }
       }
     }),
     capr_contract_check("redaction_precedes_rendering", function() {
       current <- adapter$lifecycle$field_catalog(source, context)
-      plan <- capr_contract_probe_plan(current, policy)
-      candidate <- Filter(
-        function(value) value$selected,
-        plan$candidates
-      )[[1L]]
-      redactor_name <- candidate$field$contracts$redactor
-      renderer_name <- candidate$field$contracts$renderer
-      original_redactor <- capr_adapter_binding(
-        adapter, "redactors", redactor_name
-      )
-      original_renderer <- capr_adapter_binding(
-        adapter, "renderers", renderer_name
-      )
-      state <- new.env(parent = emptyenv())
-      state$redacted <- FALSE
-      instrumented <- adapter
-      instrumented$bindings$redactors[[redactor_name]] <- function(...) {
-        result <- original_redactor(...)
-        state$redacted <- TRUE
-        result
-      }
-      instrumented$bindings$renderers[[renderer_name]] <- function(...) {
-        if (!state$redacted) stop("renderer ran before redactor")
-        original_renderer(...)
-      }
-      outcome <- cap_materialize(
-        plan, instrumented, source, policy, context
-      )$outcomes[[1L]]
-      if (!outcome$ok || !state$redacted) {
-        capr_abort(
-          "capr_adapter_invalid",
-          "redaction ordering contract failed"
+      plans <- capr_contract_probe_plans(current, policy)
+      for (field_id in names(plans)) {
+        plan <- plans[[field_id]]
+        candidate <- Filter(
+          function(value) value$selected,
+          plan$candidates
+        )[[1L]]
+        redactor_name <- candidate$field$contracts$redactor
+        renderer_name <- candidate$field$contracts$renderer
+        original_redactor <- capr_adapter_binding(
+          adapter, "redactors", redactor_name
         )
+        original_renderer <- capr_adapter_binding(
+          adapter, "renderers", renderer_name
+        )
+        state <- new.env(parent = emptyenv())
+        state$redacted <- FALSE
+        instrumented <- adapter
+        instrumented$bindings$redactors[[redactor_name]] <- function(...) {
+          result <- original_redactor(...)
+          state$redacted <- TRUE
+          result
+        }
+        instrumented$bindings$renderers[[renderer_name]] <- function(...) {
+          if (!state$redacted) stop("renderer ran before redactor")
+          original_renderer(...)
+        }
+        outcome <- cap_materialize(
+          plan, instrumented, source, policy, context
+        )$outcomes[[field_id]]
+        if (!outcome$ok || !state$redacted) {
+          capr_abort(
+            "capr_adapter_invalid",
+            "redaction ordering contract failed",
+            field_id = field_id
+          )
+        }
       }
     }),
     capr_contract_check("rendering_bounded_deterministic", function() {
       current <- adapter$lifecycle$field_catalog(source, context)
-      plan <- capr_contract_probe_plan(current, policy)
-      first <- cap_materialize(
-        plan, adapter, source, policy, context
-      )$outcomes[[1L]]
-      second <- cap_materialize(
-        plan, adapter, source, policy, context
-      )$outcomes[[1L]]
-      if (!identical(first$rendered, second$rendered) ||
-          nchar(first$rendered, type = "chars") > 20012L) {
-        capr_abort(
-          "capr_adapter_invalid",
-          "renderer is not deterministic and bounded"
-        )
+      plans <- capr_contract_probe_plans(current, policy)
+      for (field_id in names(plans)) {
+        plan <- plans[[field_id]]
+        first <- cap_materialize(
+          plan, adapter, source, policy, context
+        )$outcomes[[field_id]]
+        second <- cap_materialize(
+          plan, adapter, source, policy, context
+        )$outcomes[[field_id]]
+        if (!identical(first$rendered, second$rendered) ||
+            nchar(first$rendered, type = "chars") > 20012L) {
+          capr_abort(
+            "capr_adapter_invalid",
+            "renderer is not deterministic and bounded",
+            field_id = field_id
+          )
+        }
       }
     }),
     capr_contract_check("fallback_labeling", function() {

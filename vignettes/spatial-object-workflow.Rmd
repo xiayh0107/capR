@@ -1,0 +1,185 @@
+---
+title: "capR 情景化复杂对象：Spatial"
+subtitle: "田间试验交接时，只共享几何 schema，不共享地点本身"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Spatial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+spatial_available <- requireNamespace("sf", quietly = TRUE)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：田间试验的地图不能进普通数据表
+
+你要把一批田间试验 feature 交给分析团队。团队需要知道有多少 feature、哪一列是
+geometry、对象采用哪种空间容器；真实坐标和地点标签不应出现在第一轮 Digest。把
+geometry 当成普通 numeric 列会丢掉 CRS、几何类型和空间维度的边界。
+
+## 构造最小的 `sf` 对象
+
+```{r create-spatial}
+if (spatial_available) {
+  field_sites <- sf::st_sf(
+    site_code = c("SITE_SECRET_A", "SITE_SECRET_B"),
+    treatment = c("control", "treated"),
+    geometry = sf::st_sfc(
+      sf::st_point(c(-73, 40)),
+      sf::st_point(c(-72, 41)),
+      crs = 4326
+    )
+  )
+  data.frame(features = nrow(field_sites), geometry_column = attr(field_sites, "sf_column"))
+} else {
+  data.frame(status = "sf is not installed; the executable example is skipped")
+}
+```
+
+## 生成位置边界证据
+
+```{r spatial-digest}
+if (spatial_available) {
+  spatial_digest <- assert_descriptor(
+    cap_digest(field_sites, adapter = cap_spatial_adapter(), budget = 800,
+               label = "field trial features"),
+    "spatial"
+  )
+  stopifnot(
+    !grepl("SITE_SECRET_A", spatial_digest$text, fixed = TRUE),
+    !grepl("-73", spatial_digest$text, fixed = TRUE),
+    grepl('"coordinate_values_included": false', spatial_digest$text, fixed = TRUE),
+    grepl('"geometry_column": "geometry"', spatial_digest$text, fixed = TRUE)
+  )
+  data.frame(
+    evidence = c("feature count", "geometry column", "coordinate values", "CRS values", "site labels"),
+    included = c(TRUE, TRUE, FALSE, FALSE, FALSE)
+  )
+} else {
+  data.frame(status = "Install sf to render the spatial scenario")
+}
+```
+
+`stars` 的 in-memory 对象和 `GRanges` 也属于这个空间/范围语义；`stars_proxy` 当前会
+拒绝，因为打开 proxy-backed 文件已经越过了 metadata-only 边界。空间 Digest 不是
+地图，也不证明 feature 的几何有效。
+
+## 连续 Agent 会话：地图问题先停在 schema 边界
+
+空间 agent 很容易把“需要确认 geometry 列”滑向“请把坐标发给我”。下面的对话让
+capR 在中间做一次明确的 Gate：第一轮只给 feature 数，第二轮在用户批准后给 geometry
+schema，但仍然不给坐标、bbox 或地点标签。
+
+```{r spatial-agent-session}
+if (spatial_available) {
+  agent_digest_0 <- cap_digest(
+    field_sites,
+    question = "先确认 feature 数量，不披露地点和坐标。",
+    adapter = cap_spatial_adapter(), budget = 150, policy = agent_policy,
+    label = "agent turn 0: spatial overview"
+  )
+  stopifnot(identical(selected_field_ids(agent_digest_0),
+                      "f1:spatial@overview#compact"))
+
+  agent_response_1 <- list(
+    claims = list(list(
+      id = "features",
+      text = "我看到这是一个空间 feature 集合；需要 geometry schema 才能选择处理器。",
+      evidence = list("f1:spatial@overview#compact")
+    )),
+    evidence = list(), warnings = list(),
+    requests = list(list(
+      fieldId = "f1:spatial@structure#compact", level = 1L, budget = 240L,
+      reason = "请给出 geometry column 和有界组件名，不要给坐标。"
+    ))
+  )
+  turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+  stopifnot(turn_1$validation$ok,
+            identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+
+  agent_digest_2 <- cap_digest(
+    field_sites,
+    question = "用户批准 geometry schema，但不批准坐标、bbox、CRS 值或地点标签。",
+    adapter = cap_spatial_adapter(), budget = 800, policy = agent_policy,
+    label = "agent turn 2: spatial schema"
+  )
+  agent_response_2 <- list(
+    claims = list(list(
+      id = "geometry-boundary",
+      text = "可以继续使用 geometry 列处理器；位置值仍未进入上下文。",
+      evidence = list("f1:spatial@structure#compact",
+                      "f1:spatial@semantics#compact")
+    )),
+    evidence = list(), warnings = list(), requests = list()
+  )
+  turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+  stopifnot(turn_2$validation$ok,
+            identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+  data.frame(
+    turn = c(0L, 1L, 2L),
+    agent_action = c("count features", "request geometry schema", "choose spatial processor"),
+    capR_boundary = c("overview", "not_available", "schema only"),
+    coordinates_read = FALSE
+  )
+} else {
+  data.frame(status = "Install sf to render the spatial agent conversation")
+}
+```
+
+当前 spatial adapter 不会为了满足 agent 的下一句追问而打开 `stars_proxy` 或读取
+坐标。若业务确实要做地理分析，应把“坐标是否可见”作为新的 policy 和 adapter 能力
+审查，而不是把 Gate 的拒绝当成可绕过的提示。
+
+## 情景决策
+
+| 现场需求 | 选择 |
+| --- | --- |
+| 先确认 geometry/schema | `cap_spatial_adapter()` |
+| 发布坐标或 bbox | 另设地理脱敏策略和明确的披露预算 |
+| 需要读取 proxy 文件 | 先建立有权限的 materialization 流程 |
+| 只需要普通属性列 | stable table adapter，但不要假装保留空间语义 |
+
+更多 host 边界见[复杂对象边界矩阵](../docs/adapters/complex-object-families.md)。

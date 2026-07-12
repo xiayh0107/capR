@@ -10,7 +10,7 @@
 .capr_version <- function() {
   version <- tryCatch(
     as.character(utils::packageVersion("capR")),
-    error = function(e) "1.0.1.9000"
+    error = function(e) "1.1.0.9000"
   )
   parts <- strsplit(version, ".", fixed = TRUE)[[1L]]
   if (length(parts) > 3L) {

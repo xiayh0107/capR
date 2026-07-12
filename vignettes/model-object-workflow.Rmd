@@ -1,0 +1,181 @@
+---
+title: "capR 情景化复杂对象：Model"
+subtitle: "模型评审先共享训练 schema 和状态，不触发预测或重新拟合"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"),
+            identical(digest$adapter$metadata$conformance_claim, "none"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：监管评审需要知道模型处于什么状态
+
+模型包里可能同时有训练 schema、formula、系数、残差和可执行方法。评审人需要知道
+它是不是已拟合、使用什么 family、训练数据有多大；这不等于授权 capR 调用
+`predict()`、`summary()` 或重新拟合，更不等于把系数和训练值交给模型。
+
+## 拟合一个可复现的小模型
+
+```{r create-model}
+training <- data.frame(
+  outcome = c(10, 11, 12, 13, 14, 15),
+  exposure = c(1, 1, 2, 2, 3, 3),
+  cohort = factor(c("A", "A", "A", "B", "B", "B"))
+)
+
+fitted_model <- stats::lm(outcome ~ exposure + cohort, data = training)
+
+data.frame(
+  rows = nrow(training),
+  columns = ncol(training),
+  fitted = TRUE,
+  prediction_requested = FALSE
+)
+```
+
+## 生成模型状态证据
+
+```{r model-digest}
+model_digest <- assert_descriptor(
+  cap_digest(fitted_model, adapter = cap_model_adapter(), budget = 900,
+             label = "regulated model review"),
+  "model"
+)
+
+stopifnot(
+  grepl('"coefficient_count": 3', model_digest$text, fixed = TRUE),
+  grepl('"predict_called": false', model_digest$text, fixed = TRUE),
+  grepl('"training_values_disclosed": false', model_digest$text, fixed = TRUE),
+  !grepl("outcome ~ exposure + cohort", model_digest$text, fixed = TRUE),
+  !grepl("(Intercept)", model_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  evidence = c("training shape", "family", "fitted state", "formula expression", "coefficient values", "predict call"),
+  included = c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE)
+)
+```
+
+训练列名本身仍是 schema metadata，不能自动当作秘密；如果列名含有患者或项目机密，
+应在建模前使用安全名称。对 `glm`、`merMod`、recipe、workflow 和 parsnip 对象，
+同一原则仍成立：描述状态，不执行方法。
+
+## 连续 Agent 会话：模型问答不能偷偷变成 `predict()`
+
+模型 agent 往往先问“这是已经拟合的什么模型”，随后才问“能否预测一个新样本”。
+capR 把两句话拆开：第一轮给状态，第二轮可以重新生成更多 metadata，但不会因为
+agent 的 request 就调用 `predict()`、`summary()` 或 `refit()`。
+
+```{r model-agent-session}
+agent_digest_0 <- cap_digest(
+  fitted_model,
+  question = "先判断模型是否已拟合以及训练规模，不执行预测。",
+  adapter = cap_model_adapter(), budget = 150, policy = agent_policy,
+  label = "agent turn 0: model overview"
+)
+stopifnot(identical(selected_field_ids(agent_digest_0),
+                    "f1:model@overview#compact"))
+
+agent_response_1 <- list(
+  claims = list(list(
+    id = "fit-state",
+    text = "这是一个已经拟合的模型；需要 family 和训练 schema 才能选择解释路线。",
+    evidence = list("f1:model@overview#compact")
+  )),
+  evidence = list(), warnings = list(),
+  requests = list(list(
+    fieldId = "f1:model@semantics#compact", level = 1L, budget = 220L,
+    reason = "请提供 family/fitted 状态，但不要执行 summary 或 predict。"
+  ))
+)
+turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+stopifnot(turn_1$validation$ok,
+          identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+```
+
+```{r model-agent-turn-2}
+agent_digest_2 <- cap_digest(
+  fitted_model,
+  question = "用户批准查看模型 metadata，但不批准预测、系数值或训练观测。",
+  adapter = cap_model_adapter(), budget = 800, policy = agent_policy,
+  label = "agent turn 2: model semantics"
+)
+agent_response_2 <- list(
+  claims = list(list(
+    id = "model-route",
+    text = "可以根据 family、fitted 状态和训练 schema 选择审查路线；没有运行预测。",
+    evidence = list("f1:model@structure#compact",
+                    "f1:model@semantics#compact")
+  )),
+  evidence = list(), warnings = list(), requests = list()
+)
+turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+stopifnot(turn_2$validation$ok,
+          identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+data.frame(
+  turn = c(0L, 1L, 2L),
+  agent_action = c("inspect fit", "request model state", "choose review route"),
+  capR_action = c("overview", "not_available; no method call", "metadata only"),
+  prediction_called = FALSE
+)
+```
+
+若业务需要真实预测，应把新样本和 prediction capability 放到另一个明确授权的
+adapter；本篇的 model adapter 不会把 agent 的自然语言请求升级成执行权限。
+
+## 情景决策
+
+| 你要回答什么 | 做法 |
+| --- | --- |
+| 模型是否拟合、训练规模和 family | `cap_model_adapter()` |
+| 需要真实预测或系数解释 | 在受控环境里显式调用，不把执行塞进 Digest |
+| 只审查输入表列和样本 | stable table adapter |
+| 需要记录 preprocessing 步骤 | 对 recipe/workflow 显式选择 model adapter |
+
+完整安全边界见[复杂对象全景](complex-object-workflow.Rmd)。

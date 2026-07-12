@@ -48,6 +48,7 @@ cap_digest <- function(x, question = NULL, budget = 800L,
     registry = registry,
     allow_fallback = policy$allow_fallback
   )
+  context$.capr_snapshot_cache <- capr_new_snapshot_cache(x, resolved)
   pin <- cap_adapter_pin(resolved)
   source_ref <- resolved$lifecycle$source_ref(x, context)
   fingerprint_result <- resolved$lifecycle$fingerprint(x, context)

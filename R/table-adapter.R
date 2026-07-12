@@ -29,8 +29,7 @@ capr_table_uri <- function(x, context = list()) {
 }
 
 capr_table_fingerprint <- function(x, context = list()) {
-  override <- context$fingerprint %||%
-    attr(x, "capr_fixture_fingerprint", exact = TRUE)
+  override <- context$fingerprint
   if (!is.null(override)) {
     return(list(
       available = TRUE,

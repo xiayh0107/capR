@@ -8,15 +8,33 @@ The stable host representations are base `data.frame` plus optional
 `tbl_df` and `data.table`. Community, experimental, and structural fallback
 adapters do not inherit the stable table conformance claim.
 
+Opt-in experimental constructors are also available for grouping-aware
+`grouped_df`/`rowwise_df` evidence and bounded declarative `ggplot`
+specifications. They require an explicit `adapter =` choice (or an explicit
+registry entry for ggplot), never build a plot, and have
+`conformance_claim = "none"`.
+
+Ten further public constructors cover nested, array, relational, temporal,
+spatial, graph, scientific, model, visual, and lazy/live objects. They are all
+explicit, metadata-only experimental adapters, and all set
+`conformance_claim = "none"`. Payload values are excluded, delayed objects are
+not materialized, and live objects are not queried or collected. Relational
+metadata can also be declared without DBI via `cap_db_schema()`.
+
 ## Install
 
 ```r
 # install.packages("pak")
+# Current 1.1 development APIs, including complex-object adapters
+pak::pak("xiayh0107/capR")
+
+# Published stable v1.0 fixture implementation
 pak::pak("xiayh0107/capR@capR-v1.0.0")
 ```
 
-GitHub is the v1.0 publication target; CRAN publication is a separate future
-decision.
+GitHub is the publication target; CRAN publication is a separate future
+decision. The tagged v1.0 package does not contain the unreleased 1.1
+experimental constructors.
 
 ## Verified quick start
 
@@ -93,8 +111,23 @@ bounded, structural-only, and marked `conformance_claim = "none"`.
 
 - [Documentation index](docs/index.md)
 - [中文快速上手（推荐）](vignettes/quickstart.Rmd)
+- [复杂案例：多中心测序质控](vignettes/advanced-table-workflow.Rmd)
+- [跨对象案例：tibble、分组与 ggplot](vignettes/tidy-ggplot-workflow.Rmd)
+- [复杂对象全景：十类结构、设计动机与安全适配](vignettes/complex-object-workflow.Rmd)
+- [Agent 情景教程：Nested](vignettes/nested-object-workflow.Rmd)
+- [Agent 情景教程：Array](vignettes/array-object-workflow.Rmd)
+- [Agent 情景教程：Relational](vignettes/relational-object-workflow.Rmd)
+- [Agent 情景教程：Temporal](vignettes/temporal-object-workflow.Rmd)
+- [Agent 情景教程：Spatial](vignettes/spatial-object-workflow.Rmd)
+- [Agent 情景教程：Graph](vignettes/graph-object-workflow.Rmd)
+- [Agent 情景教程：Scientific](vignettes/scientific-object-workflow.Rmd)
+- [Agent 情景教程：Model](vignettes/model-object-workflow.Rmd)
+- [Agent 情景教程：Visual](vignettes/visual-object-workflow.Rmd)
+- [Agent 情景教程：Live](vignettes/live-object-workflow.Rmd)
 - [Getting started vignette](vignettes/getting-started.Rmd)
 - [Stable public API and compatibility](docs/api/public-api-v1.md)
+- [Experimental complex-object families](docs/adapters/complex-object-families.md)
+- [Experimental tidy and ggplot adapters](docs/adapters/experimental-object-types.md)
 - [CLI reference](docs/cli.md)
 - [Adapter authoring](docs/handbook/writing-adapters.md)
 - [Security model](SECURITY.md)

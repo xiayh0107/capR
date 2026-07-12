@@ -80,7 +80,8 @@ test_that("basic-table fixture is byte and structurally exact", {
   digest <- cap_digest(
     table,
     budget = 500,
-    policy = cap_policy(max_budget = 500)
+    policy = cap_policy(max_budget = 500),
+    fingerprint = fixture_fingerprint("basic-table")
   )
   expect_identical(
     digest$text,

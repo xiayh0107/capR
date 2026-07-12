@@ -21,10 +21,5 @@ Useful links:
 \author{
 \strong{Maintainer}: Yihui Xia \email{xiayh0107@users.noreply.github.com}
 
-Authors:
-\itemize{
-  \item Yihui Xia \email{xiayh0107@users.noreply.github.com}
-}
-
 }
 \keyword{internal}

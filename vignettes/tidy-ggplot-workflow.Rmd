@@ -1,0 +1,456 @@
+---
+title: "capR tidy 工作流：tibble、分组与 ggplot"
+subtitle: "稳定 table 语义、显式 experimental adapters 与 fail-closed 边界"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR tidy 工作流：tibble、分组与 ggplot}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+options(width = 110)
+
+stopifnot(
+  requireNamespace("tibble", quietly = TRUE),
+  requireNamespace("dplyr", quietly = TRUE),
+  requireNamespace("ggplot2", quietly = TRUE)
+)
+
+library(capR)
+stopifnot("package:capR" %in% search())
+```
+
+## 案例目标 {-}
+
+R 分析通常不会停在一个 `data.frame`：同一批数据可能先成为 tibble，随后带上
+`dplyr` 分组，最后变成 ggplot。这里用**同一张确定性 tibble**比较四条路径：
+
+1. 普通 tibble 默认复用稳定 table adapter；
+2. `grouped_df` 默认仍继承 table adapter，因此不会保留 grouping 语义；
+3. 显式选择 experimental grouped-table adapter 后，Digest 才会记录分组模式、变量和
+   group 数量；
+4. ggplot 默认 fail closed，只有显式 adapter 或宿主 registry 注册后才会生成
+   `sourceType = "plot"` 的声明式 Digest。
+
+两个新增 adapter 都是 opt-in、`maturity = "experimental"` 且
+`conformance_claim = "none"`。它们不会扩大 capR 对稳定 table fixture scope 的
+合规声明。
+
+## 一张数据，三种宿主对象
+
+下面的数据没有随机数、网络访问或外部文件；每次 knit 都会得到同样的对象。
+
+```{r create-tibble}
+measurements <- tibble::tibble(
+  sample_id = sprintf("sample-A%02d", 1:12),
+  condition = rep(c("control", "treated"), each = 6),
+  batch = rep(rep(c("B1", "B2", "B3"), each = 2), 2),
+  replicate = rep(1:6, 2),
+  signal = c(
+    8.2, 8.8, 9.1, 9.4, 9.7, 10.0,
+    10.1, 10.8, 11.2, 11.9, 12.3, 12.8
+  ),
+  qc_pass = c(
+    TRUE, TRUE, TRUE, FALSE, TRUE, TRUE,
+    TRUE, TRUE, FALSE, TRUE, TRUE, TRUE
+  )
+)
+
+stopifnot(
+  inherits(measurements, "tbl_df"),
+  identical(dim(measurements), c(12L, 6L)),
+  !anyDuplicated(measurements$sample_id)
+)
+measurements
+```
+
+## 普通 tibble：默认稳定 table 路径
+
+`tbl_df` 是稳定 table source family 的可选宿主表示。无需显式 adapter：
+
+```{r plain-tibble-digest}
+plain_digest <- cap_digest(
+  measurements,
+  question = "说明数据形状和字段结构。",
+  budget = 500,
+  label = "tidy_measurements"
+)
+
+plain_selected <- vapply(
+  Filter(function(field) isTRUE(field$selected), plain_digest$manifest$fields),
+  `[[`,
+  character(1),
+  "fieldId"
+)
+
+stopifnot(
+  identical(plain_digest$source$sourceType, "table"),
+  identical(plain_digest$adapter$metadata$id, "org.capr.table"),
+  identical(plain_digest$adapter$metadata$maturity, "stable"),
+  identical(
+    plain_digest$adapter$metadata$conformance_claim,
+    "CAP-Digest v1.0 table fixture scope"
+  ),
+  all(c(
+    "f1:table@shape#base",
+    "f1:table@columns#compact"
+  ) %in% plain_selected)
+)
+cat(plain_digest$text)
+```
+
+这里的“稳定”来自 table adapter 及其既有 fixture scope，而不是 tibble 包本身获得了
+新的 source family。
+
+## grouped_df：默认继承与显式保留
+
+### 默认路径会忽略 grouping
+
+把同一对象按 `condition` 和 `batch` 分组：
+
+```{r create-grouped-tibble}
+grouped_measurements <- dplyr::group_by(
+  measurements,
+  condition,
+  batch
+)
+
+stopifnot(
+  inherits(grouped_measurements, "grouped_df"),
+  identical(dplyr::group_vars(grouped_measurements), c("condition", "batch")),
+  identical(dplyr::n_groups(grouped_measurements), 6L)
+)
+grouped_measurements
+```
+
+`grouped_df` 同时继承 `tbl_df`。默认 S3 bridge 因而仍选择稳定 table adapter；它只看
+table 字段，不把 grouping attribute 当作证据。使用相同 label 时，默认 Digest 与未
+分组 tibble 完全一致：
+
+```{r inherited-table-adapter}
+inherited_grouped_digest <- cap_digest(
+  grouped_measurements,
+  question = "说明数据形状和字段结构。",
+  budget = 500,
+  label = "tidy_measurements"
+)
+
+inherited_ids <- vapply(
+  inherited_grouped_digest$catalog$fields,
+  `[[`,
+  character(1),
+  "id"
+)
+
+stopifnot(
+  identical(inherited_grouped_digest$adapter$metadata$id, "org.capr.table"),
+  !"f1:table@capr_grouping#compact" %in% inherited_ids,
+  identical(inherited_grouped_digest$text, plain_digest$text),
+  identical(
+    capr_canonical_json(inherited_grouped_digest$manifest),
+    capr_canonical_json(plain_digest$manifest)
+  )
+)
+
+data.frame(
+  host_class = class(grouped_measurements)[[1L]],
+  resolved_adapter = inherited_grouped_digest$adapter$metadata$id,
+  grouping_field_present = "f1:table@capr_grouping#compact" %in% inherited_ids
+)
+```
+
+### 显式 adapter 保留 mode、vars 和 group count
+
+当分组本身是任务证据时，由宿主显式选择 `cap_grouped_table_adapter()`：
+
+```{r explicit-grouped-adapter}
+grouped_adapter <- cap_grouped_table_adapter()
+grouped_contract <- cap_test_adapter(grouped_adapter, grouped_measurements)
+
+grouped_digest <- cap_digest(
+  grouped_measurements,
+  question = "说明表格结构以及分组模式、变量和组数。",
+  budget = 600,
+  adapter = grouped_adapter,
+  label = "grouped_tidy_measurements"
+)
+
+grouping_identity <- grouped_digest$source$identity$grouping
+grouped_parsed <- cap_parse_digest_text(grouped_digest$text)
+grouping_body <- grouped_parsed$fields[[
+  "f1:table@capr_grouping#compact"
+]]$body
+
+stopifnot(
+  grouped_contract$ok,
+  identical(grouped_digest$source$sourceType, "table"),
+  identical(grouped_digest$adapter$metadata$id, "org.capr.grouped_table"),
+  identical(grouped_digest$adapter$metadata$maturity, "experimental"),
+  identical(grouped_digest$adapter$metadata$conformance_claim, "none"),
+  identical(grouping_identity$kind, "grouped"),
+  identical(
+    unlist(grouping_identity$variables, use.names = FALSE),
+    c("condition", "batch")
+  ),
+  identical(grouping_identity$groupCount, 6L),
+  grepl("kind: grouped", grouping_body, fixed = TRUE),
+  grepl("variables: condition, batch", grouping_body, fixed = TRUE),
+  grepl("groups: 6", grouping_body, fixed = TRUE)
+)
+cat(grouped_digest$text)
+```
+
+这个 grouping field 不含 group keys 或单元格值。显式 adapter 也使用包含分组元数据的
+fingerprint，但仍注明 group keys 和 cell values 没有进入 hash。因为 S3 bridge 的解析
+优先于 registry，`grouped_df` 这条增强路径应明确传入 `adapter =`，不能依赖 registry
+覆盖继承的 `tbl_df` bridge。
+
+## ggplot：先展示，再讨论证据边界
+
+同一张 tibble 继续生成一个带全局 mapping、两个 layer 和 facet 的 ggplot：
+
+```{r create-plot}
+signal_plot <- ggplot2::ggplot(
+  measurements,
+  ggplot2::aes(
+    x = replicate,
+    y = signal,
+    colour = condition
+  )
+) +
+  ggplot2::geom_line(
+    ggplot2::aes(group = condition),
+    linewidth = 0.5
+  ) +
+  ggplot2::geom_point(size = 2) +
+  ggplot2::facet_wrap(ggplot2::vars(batch)) +
+  ggplot2::labs(
+    title = "Deterministic signal profile",
+    x = "Replicate",
+    y = "Signal"
+  ) +
+  ggplot2::theme_minimal()
+
+stopifnot(
+  inherits(signal_plot, "ggplot"),
+  identical(nrow(signal_plot$data), 12L),
+  identical(length(signal_plot$layers), 2L)
+)
+signal_plot
+```
+
+上面图片由 knitr 调用 ggplot2 的常规打印路径为**读者展示**，这一步会独立完成绘图。
+它不是 `cap_ggplot_adapter()` 的工作，也不能作为 adapter 看过像素的证据。下面才开始
+调用 capR。
+
+### 默认仍然 fail closed
+
+capR 不会因为对象带有 `ggplot` class 就隐式选择 experimental adapter：
+
+```{r plot-default-fails}
+plot_default_result <- tryCatch(
+  cap_digest(signal_plot, budget = 800),
+  error = function(error) error
+)
+
+stopifnot(
+  inherits(plot_default_result, "capr_adapter_not_found"),
+  grepl(
+    "structural fallback is disabled",
+    conditionMessage(plot_default_result),
+    fixed = TRUE
+  )
+)
+
+data.frame(
+  default_succeeded = !inherits(plot_default_result, "error"),
+  condition = class(plot_default_result)[[1L]]
+)
+```
+
+这里也没有自动退回 structural fallback。宿主必须明确选择所需语义和风险边界。
+
+### 显式 plot adapter：只读声明，不 build 图
+
+显式 `cap_ggplot_adapter()` 产生 `sourceType = "plot"` 的四个字段：
+`overview`、`data_schema`、`mapping` 和 `layers`。
+
+```{r explicit-plot-adapter}
+plot_adapter <- cap_ggplot_adapter()
+plot_contract <- cap_test_adapter(plot_adapter, signal_plot)
+
+plot_digest <- cap_digest(
+  signal_plot,
+  question = "记录 plot 的数据 schema、声明式 mapping 和 layers。",
+  budget = 800,
+  adapter = plot_adapter,
+  label = "deterministic_signal_plot"
+)
+
+plot_selected <- vapply(
+  Filter(function(field) isTRUE(field$selected), plot_digest$manifest$fields),
+  `[[`,
+  character(1),
+  "fieldId"
+)
+expected_plot_fields <- c(
+  "f1:plot@overview#base",
+  "f1:plot@data_schema#compact",
+  "f1:plot@mapping#declared",
+  "f1:plot@layers#compact"
+)
+plot_caveat_codes <- vapply(
+  plot_digest$caveats,
+  `[[`,
+  character(1),
+  "code"
+)
+
+stopifnot(
+  plot_contract$ok,
+  identical(plot_digest$source$sourceType, "plot"),
+  identical(plot_digest$adapter$metadata$id, "org.capr.ggplot"),
+  identical(plot_digest$adapter$metadata$maturity, "experimental"),
+  identical(plot_digest$adapter$metadata$semantic_level, "domain"),
+  identical(plot_digest$adapter$metadata$conformance_claim, "none"),
+  setequal(plot_selected, expected_plot_fields),
+  identical(plot_digest$adapter$metadata$capabilities$builds_plot, FALSE),
+  identical(plot_digest$adapter$metadata$capabilities$renders_pixels, FALSE),
+  identical(plot_digest$adapter$metadata$capabilities$evaluates_mappings, FALSE),
+  identical(
+    plot_digest$adapter$metadata$capabilities$parameter_values_disclosed,
+    FALSE
+  ),
+  "capr_caveat_plot_spec_only" %in% plot_caveat_codes,
+  !grepl(measurements$sample_id[[1L]], plot_digest$text, fixed = TRUE),
+  !grepl("8.2", plot_digest$text, fixed = TRUE)
+)
+cat(plot_digest$text)
+```
+
+`overview` 只给出对象 class、数据形状、layer 数、facet 与坐标系；`data_schema`
+只给列名和类型；`mapping` 保留**未求值**的 aesthetics、facet、标签、显式 scale 和
+theme 元数据；`layers` 只给 geom/stat/position class 与参数名。
+
+adapter 不调用 `ggplot_build()`，不执行 stat，不求值 mapping 或 layer data function，
+不渲染也不检查像素，并且不把 tibble 的行值或固定参数值写进 plot Digest。因此它能
+证明“图对象声明了什么”，不能证明“图实际画出了什么”、某个趋势是否存在，或渲染后
+的像素是否正确。它的 specification fingerprint 同样不等价于像素 hash。
+
+### 可选：在隔离 registry 中注册 ggplot adapter
+
+应用可以避免每次传入 adapter 对象，同时不污染进程全局 registry：
+
+```{r isolated-plot-registry}
+plot_registry <- cap_registry(global = FALSE)
+cap_register_adapter(
+  "ggplot",
+  cap_ggplot_adapter,
+  registry = plot_registry,
+  origin = "tidy-ggplot-vignette"
+)
+
+registered_plot_digest <- cap_digest(
+  signal_plot,
+  question = "记录 plot 的数据 schema、声明式 mapping 和 layers。",
+  budget = 800,
+  registry = plot_registry,
+  label = "deterministic_signal_plot"
+)
+registry_resolution <- cap_resolution_diagnostics(
+  registered_plot_digest$adapter
+)
+registry_entries <- cap_list_adapters(plot_registry)
+
+stopifnot(
+  identical(nrow(registry_entries), 1L),
+  identical(registry_entries$class, "ggplot"),
+  identical(registered_plot_digest$adapter$metadata$id, "org.capr.ggplot"),
+  registry_resolution$selected$mode %in% c(
+    "registry_exact",
+    "registry_inherited"
+  ),
+  identical(registry_resolution$matched_class, "ggplot"),
+  identical(registered_plot_digest$text, plot_digest$text),
+  identical(
+    capr_canonical_json(registered_plot_digest$manifest),
+    capr_canonical_json(plot_digest$manifest)
+  )
+)
+registry_entries
+```
+
+registry 只改变 adapter 的解析方式；adapter identity 和 canonical Digest 内容不变。
+
+## 把四条路径放在一起
+
+```{r compare-paths}
+comparison <- data.frame(
+  object = c(
+    "plain tbl_df",
+    "grouped_df (default)",
+    "grouped_df (explicit)",
+    "ggplot (explicit/registry)"
+  ),
+  source_type = c(
+    plain_digest$source$sourceType,
+    inherited_grouped_digest$source$sourceType,
+    grouped_digest$source$sourceType,
+    plot_digest$source$sourceType
+  ),
+  adapter = c(
+    plain_digest$adapter$metadata$id,
+    inherited_grouped_digest$adapter$metadata$id,
+    grouped_digest$adapter$metadata$id,
+    plot_digest$adapter$metadata$id
+  ),
+  maturity = c(
+    plain_digest$adapter$metadata$maturity,
+    inherited_grouped_digest$adapter$metadata$maturity,
+    grouped_digest$adapter$metadata$maturity,
+    plot_digest$adapter$metadata$maturity
+  ),
+  conformance_claim = c(
+    plain_digest$adapter$metadata$conformance_claim,
+    inherited_grouped_digest$adapter$metadata$conformance_claim,
+    grouped_digest$adapter$metadata$conformance_claim,
+    plot_digest$adapter$metadata$conformance_claim
+  ),
+  stringsAsFactors = FALSE
+)
+
+stopifnot(
+  identical(nrow(comparison), 4L),
+  identical(comparison$source_type, c("table", "table", "table", "plot")),
+  identical(comparison$maturity, c(
+    "stable", "stable", "experimental", "experimental"
+  )),
+  identical(comparison$conformance_claim[3:4], c("none", "none"))
+)
+comparison
+```
+
+从这个案例应带走三点：
+
+- host class 相似不代表语义相同；`grouped_df` 的默认 table 路径会主动忽略 grouping，
+  需要时必须显式选择 experimental adapter。
+- experimental adapter 必须 opt in。ggplot 默认失败不是缺陷，而是避免任意对象自动
+  获得过宽语义的安全边界。
+- plot specification、实际统计计算和渲染像素是三层不同证据。当前 adapter 只覆盖第
+  一层，而且 `conformance_claim = "none"`。
+
+若需要稳定 table 的完整两轮披露流程，继续阅读
+`vignette("advanced-table-workflow", package = "capR")`；若要为其他对象定义语义，继续
+阅读 `vignette("adapter-authoring", package = "capR")`。
