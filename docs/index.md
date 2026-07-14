@@ -1,52 +1,93 @@
-# capR Documentation
+# capR documentation
 
-## Users
+capR compiles R objects into bounded, citable evidence packs for LLMs and
+gates every follow-up disclosure. If that sentence is new to you, don't
+browse — take one of the three doors below.
 
-1. [中文快速上手（推荐）](../vignettes/quickstart.Rmd)
-2. [复杂案例：多中心测序质控](../vignettes/advanced-table-workflow.Rmd)
-3. [跨对象案例：tibble、分组与 ggplot](../vignettes/tidy-ggplot-workflow.Rmd)
-4. [复杂对象全景：十类结构、设计动机与安全适配](../vignettes/complex-object-workflow.Rmd)
-5. [Agent 情景教程：Nested](../vignettes/nested-object-workflow.Rmd)
-6. [Agent 情景教程：Array](../vignettes/array-object-workflow.Rmd)
-7. [Agent 情景教程：Relational](../vignettes/relational-object-workflow.Rmd)
-8. [Agent 情景教程：Temporal](../vignettes/temporal-object-workflow.Rmd)
-9. [Agent 情景教程：Spatial](../vignettes/spatial-object-workflow.Rmd)
-10. [Agent 情景教程：Graph](../vignettes/graph-object-workflow.Rmd)
-11. [Agent 情景教程：Scientific](../vignettes/scientific-object-workflow.Rmd)
-12. [Agent 情景教程：Model](../vignettes/model-object-workflow.Rmd)
-13. [Agent 情景教程：Visual](../vignettes/visual-object-workflow.Rmd)
-14. [Agent 情景教程：Live](../vignettes/live-object-workflow.Rmd)
-15. [README quick start](../README.md)
-16. [Getting started vignette](../vignettes/getting-started.Rmd)
-17. [Table conformance](../vignettes/table-conformance.Rmd)
-18. [Response validation and follow-up](../vignettes/response-followup.Rmd)
-19. [Agentic workflow: closing the digest loop](../vignettes/agentic-workflow.Rmd)
-20. [Strategy plugins: planners, tokenizers, and options](../vignettes/strategy-plugins.Rmd)
-21. [Artifact I/O](../vignettes/artifact-io.Rmd)
-22. [CLI reference](cli.md)
-23. [Troubleshooting](troubleshooting.md)
+## Start here
 
-## Adapter authors and implementers
+| If you… | Read |
+|---|---|
+| 想用中文完整走一遍（推荐） | [中文快速上手](../vignettes/quickstart.Rmd) — 从第一个 digest 到 gate、patch、工件落盘，全部可执行 |
+| want the mental model first | [Concepts](concepts.md) — the six nouns, the one loop, and a jargon decoder |
+| want working code in five minutes | [Getting started](../vignettes/getting-started.Rmd) — build a digest and actually read it |
 
-1. [Stable public API and compatibility](api/public-api-v1.md)
-2. [Adapter API](api/adapter-api.md)
-3. [Experimental complex-object families](adapters/complex-object-families.md)
-4. [Experimental tidy and ggplot adapters](adapters/experimental-object-types.md)
-5. [Adapter contract](architecture/adapter-contract.md)
-6. [Writing adapters](handbook/writing-adapters.md)
-7. [Registry resolution](architecture/registry-resolution.md)
-8. [Security model](architecture/security-model.md)
-9. [Testing and conformance](handbook/testing-conformance.md)
+## Use it
 
-## Release maintainers
+- [Response validation and follow-up](../vignettes/response-followup.Rmd) —
+  check a model's citations, gate its requests.
+- [Agentic workflow](../vignettes/agentic-workflow.Rmd) — let a model
+  drive the loop via `cap_agent_session()`; mock client and aisdk shown.
+- [Artifact I/O](../vignettes/artifact-io.Rmd) — persist and reload
+  canonical digest artifacts.
+- [CLI reference](cli.md) — the same round trip from the shell, CSV in,
+  artifacts out.
+- [Troubleshooting](troubleshooting.md) — the errors you'll actually hit
+  and what they mean.
 
-1. [Adoption and conformance claim](../ADOPTION.md)
-2. [Security policy](../SECURITY.md)
-3. [CI and release](handbook/ci-release.md)
-4. [Artifact boundaries](architecture/artifact-boundaries.md)
-5. [Vendoring](../VENDORING.md)
-6. [Architecture decisions](decisions/README.md)
+### Worked examples
 
-Upstream CAP-Digest normative resources and fixtures remain authoritative for
-CAP behavior. capR documentation governs host integration, API compatibility,
-security defaults, and release evidence.
+- [复杂案例：多中心测序质控](../vignettes/advanced-table-workflow.Rmd) —
+  a realistic mixed-type table, two disclosure rounds, redaction proofs.
+- [跨对象案例：tibble、分组与 ggplot](../vignettes/tidy-ggplot-workflow.Rmd)
+
+### Beyond tables (experimental, metadata-only)
+
+[复杂对象全景](../vignettes/complex-object-workflow.Rmd) explains the ten
+descriptor families and their hard limits; each family then has its own
+executable tutorial:
+[nested](../vignettes/nested-object-workflow.Rmd) ·
+[array](../vignettes/array-object-workflow.Rmd) ·
+[relational](../vignettes/relational-object-workflow.Rmd) ·
+[temporal](../vignettes/temporal-object-workflow.Rmd) ·
+[spatial](../vignettes/spatial-object-workflow.Rmd) ·
+[graph](../vignettes/graph-object-workflow.Rmd) ·
+[scientific](../vignettes/scientific-object-workflow.Rmd) ·
+[model](../vignettes/model-object-workflow.Rmd) ·
+[visual](../vignettes/visual-object-workflow.Rmd) ·
+[live](../vignettes/live-object-workflow.Rmd)
+
+## Extend it
+
+- [Writing adapters](handbook/writing-adapters.md) — teach capR a new
+  object type without touching the pipeline; pair with the
+  [adapter authoring vignette](../vignettes/adapter-authoring.Rmd) and the
+  [adapter API reference](api/adapter-api.md).
+- [Strategy plugins](../vignettes/strategy-plugins.Rmd) — custom planners
+  (field ranking) and tokenizers (budget accounting), plus the `capr.*`
+  options layer and cost calibration.
+- [Adapter contract](architecture/adapter-contract.md) and
+  [registry resolution](architecture/registry-resolution.md) — the rules
+  your adapter is held to.
+
+## Trust it
+
+- [Security model](architecture/security-model.md) and the repo-level
+  [security policy](../SECURITY.md) — what is enforced, what is out of
+  scope.
+- [Table conformance](../vignettes/table-conformance.Rmd) and
+  [testing & conformance](handbook/testing-conformance.md) — run the
+  official fixture suite yourself (`cap_run_fixtures()`).
+- [Adoption and conformance claims](../ADOPTION.md) — exactly what the
+  v1.0 claim covers, and what it does not.
+- [Public API and compatibility](api/public-api-v1.md) — stability
+  promises, experimental surfaces, versioned artifacts; see also the
+  [runtime API](api/runtime-api.md) and [error model](api/error-model.md).
+
+## Project internals
+
+- [Architecture overview](architecture/overview.md) — the pipeline in one
+  diagram; deeper: [artifact boundaries](architecture/artifact-boundaries.md),
+  [repository layout](architecture/repository-layout.md).
+- [Architecture decision records](decisions/README.md) — why things are
+  the way they are, including the
+  [agentic companion layer](decisions/ADR-0006-agentic-companion-layer.md).
+- [CI and release](handbook/ci-release.md) — how release evidence bundles
+  are produced and reverified;
+  [implementer guide](handbook/implementer-guide.md) for porting
+  CAP-Digest to another host language.
+- [Project charter](project-charter.md) · [Roadmap](roadmap/implementation-plan.md)
+
+Upstream CAP-Digest normative resources and fixtures remain authoritative
+for protocol behavior. capR documentation governs host integration, API
+compatibility, security defaults, and release evidence.

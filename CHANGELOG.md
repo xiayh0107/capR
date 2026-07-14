@@ -2,6 +2,22 @@
 
 ## 1.1.0 - Unreleased
 
+### Documentation refactor (human-first)
+
+- Rewrote the README to lead with the problem and a faithful annotated
+  digest example instead of protocol vocabulary; scope and claims moved
+  into plain language without weakening them.
+- Added `docs/concepts.md`: the records-office mental model, the six core
+  nouns, the round-trip diagram, the never-happens invariants, and a
+  jargon decoder for every spec term used in deeper docs.
+- Rebuilt `docs/index.md` from a numbered link dump into a guided map
+  organized by reader goal (start here / use it / extend it / trust it /
+  internals) with one-line descriptions.
+- Rewrote the getting-started vignette as a real tutorial that teaches how
+  to *read* a digest (header meter, citable field blocks, redaction proof,
+  the requestable boundary) and shows validation failing on an undisclosed
+  citation.
+
 ### Agent layer hardening and evidence features (review-driven)
 
 - Grounding metrics: every agent turn now records a deterministic
