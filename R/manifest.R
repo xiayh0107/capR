@@ -84,19 +84,14 @@ cap_build_manifest <- function(digest_id, source_ref, fingerprint, catalog,
     estimated <- estimated + 16L
   }
   list(
-    schema = "cap.manifest.v1",
+    schema = capr_schema("manifest"),
     digestId = digest_id,
     source = list(
       uri = source_ref$uri,
       sourceType = source_ref$sourceType,
       label = source_ref$label
     ),
-    versions = list(
-      cap = "2026-07-05-draft",
-      text = "v1",
-      fields = "f1",
-      manifest = "v1"
-    ),
+    versions = capr_manifest_versions(),
     budget = list(
       requested = plan$budget_requested,
       estimated = as.integer(estimated),

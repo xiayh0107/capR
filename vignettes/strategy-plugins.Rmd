@@ -1,0 +1,121 @@
+---
+title: "Strategy plugins: planners, tokenizers, and options"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Strategy plugins: planners, tokenizers, and options}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+capR's pipeline stays deterministic, but two of its decisions are now
+pluggable seams, following the adapter-registry pattern: the **planner**
+(which eligible fields are ranked into the budget) and the **tokenizer**
+(how rendered output is costed). The seams open ordering and accounting
+only — eligibility filtering, execution authorization, the budget commit
+walk, redaction ordering, and every gate rule stay inside the runtime, so a
+custom strategy cannot express a policy violation.
+
+Defaults are untouched: with `planner = NULL` and `tokenizer = NULL` (or the
+built-in ids), artifacts are byte-identical to previous releases, and the
+conformance fixtures always run the built-ins.
+
+```{r}
+library(capR)
+scores <- data.frame(
+  sample_id = c("S1", "S2", "S3"),
+  qc_score = c(0.91, 0.87, 0.95)
+)
+```
+
+## A custom planner
+
+A planner supplies one function: `rank(candidates, question, policy)`,
+returning a permutation of the eligible candidate indices, most preferred
+first. Its id is stamped into `plan$planner` and the resolution sidecar.
+
+```{r}
+cost_first <- cap_planner(
+  id = "cheapest-first-v1",
+  version = "1.0.0",
+  rank = function(candidates, question, policy) {
+    order(vapply(candidates, `[[`, integer(1), "estimated_cost"))
+  }
+)
+digest <- cap_digest(scores, budget = 130, planner = cost_first)
+digest$artifact$plan$planner
+digest$provenance$strategies
+```
+
+Invalid rankings fail typed instead of corrupting selection:
+
+```{r, error = TRUE}
+broken <- cap_planner(
+  id = "broken-v1",
+  version = "1.0.0",
+  rank = function(candidates, question, policy) rep(1L, length(candidates))
+)
+try(cap_digest(scores, budget = 130, planner = broken))
+```
+
+## A custom tokenizer
+
+The built-in `heuristic_v1` counts roughly four characters per token, which
+undercounts CJK text. A tokenizer replaces budget accounting wholesale and
+is stamped into the digest header, every manifest row, and the sidecar, so
+artifacts remain self-describing.
+
+```{r}
+cjk_aware <- cap_tokenizer(
+  id = "cjk-aware-v1",
+  version = "1.0.0",
+  count = function(rendered, field_id) {
+    wide <- nchar(gsub("[\\x01-\\x7F]", "", rendered, perl = TRUE))
+    ascii <- nchar(rendered, type = "chars") - wide
+    as.integer(wide + ceiling(ascii / 4))
+  }
+)
+digest <- cap_digest(scores, budget = 800, tokenizer = cjk_aware)
+strsplit(digest$text, "\n")[[1]][[1]]
+digest$manifest$budget$tokenizer
+```
+
+Follow-up patches are pinned to the digest's accounting: `cap_patch()`
+refuses a tokenizer whose id differs from `manifest$budget$tokenizer`, so a
+digest and its patches are always costed by one accountant.
+
+Registries mirror the adapter registry for reuse across calls:
+
+```{r}
+cap_register_tokenizer(cjk_aware)
+cap_list_tokenizers()
+digest <- cap_digest(scores, tokenizer = "cjk-aware-v1")
+cap_unregister_tokenizer("cjk-aware-v1")
+```
+
+## Calibrating estimated costs
+
+`estimatedCost` literals are part of an adapter's identity, so capR never
+rewrites them at runtime. `cap_calibrate_costs()` measures what each
+field/level actually costs so an adapter author can recost deliberately:
+
+```{r}
+cap_calibrate_costs(scores)
+```
+
+## Package options
+
+Options configure default magnitudes only — never permissions, strategies,
+or redaction (see `?capR` for the full table and the rationale):
+
+```{r}
+options(capr.default_budget = 300L)
+cap_digest(scores)$manifest$budget$requested
+options(capr.default_budget = NULL)
+```
+
+`cap_run_fixtures()` clears every `capr.*` option for the duration of its
+checks, so conformance evidence can never be skewed by session state.

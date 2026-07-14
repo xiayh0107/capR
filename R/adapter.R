@@ -219,7 +219,7 @@ cap_new_adapter <- function(id, version, provider, provider_version, source_fami
     )
   }
   metadata <- list(
-    schema = "capr.adapter.v1",
+    schema = capr_schema("adapter"),
     id = capr_assert_scalar_character(id, "id"),
     version = capr_semver(version, "version"),
     provider = capr_assert_scalar_character(provider, "provider"),
@@ -311,7 +311,7 @@ cap_validate_adapter <- function(adapter) {
       missing = missing
     )
   }
-  if (!identical(adapter$metadata$schema, "capr.adapter.v1")) {
+  if (!identical(adapter$metadata$schema, capr_schema("adapter"))) {
     capr_abort(
       "capr_adapter_invalid",
       "unsupported adapter schema",

@@ -4,7 +4,14 @@
 \alias{cap_materialize}
 \title{Materialize approved plan fields}
 \usage{
-cap_materialize(plan, adapter, source, policy = cap_policy(), context = list())
+cap_materialize(
+  plan,
+  adapter,
+  source,
+  policy = cap_policy(),
+  context = list(),
+  tokenizer = NULL
+)
 }
 \arguments{
 \item{plan}{Selection plan from \code{cap_select_fields()}.}
@@ -16,6 +23,9 @@ cap_materialize(plan, adapter, source, policy = cap_policy(), context = list())
 \item{policy}{Host policy.}
 
 \item{context}{Runtime context.}
+
+\item{tokenizer}{Optional tokenizer id or \code{capr_tokenizer}; \code{NULL} keeps
+the built-in \code{heuristic_v1} accounting.}
 }
 \value{
 Structured per-field outcomes.

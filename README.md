@@ -93,6 +93,24 @@ Rscript /path/to/capr digest --input orders.csv --output artifacts --budget 500
 The CLI accepts file-based inputs and delegates to public APIs. It does not
 evaluate arbitrary R source.
 
+## Agentic companion layer (opt-in, experimental)
+
+`cap_agent_session()` ships the documented digest -> validate -> gate ->
+patch round trip as a runnable loop. capR still contains zero network code:
+the model call is injected by the host, and the gate -- never the model --
+authorizes each follow-up disclosure.
+
+```r
+session <- cap_agent_session(orders, budget = 500)
+cap_agent_run(session, ask = your_model_client)  # ask: function(text) -> response
+cap_agent_transcript(session)                    # deterministic audit trail
+```
+
+With the suggested [aisdk](https://github.com/YuLab-SMU/aisdk) package
+installed, `cap_aisdk_tools(session)` / `cap_aisdk_agent(session)` expose the
+session as native aisdk tools so an aisdk agent drives the loop itself. See
+`vignette("agentic-workflow")` and ADR-0006.
+
 ## Scope and non-goals
 
 The v1.0 claim does not cover:
@@ -124,6 +142,7 @@ bounded, structural-only, and marked `conformance_claim = "none"`.
 - [Agent 情景教程：Model](vignettes/model-object-workflow.Rmd)
 - [Agent 情景教程：Visual](vignettes/visual-object-workflow.Rmd)
 - [Agent 情景教程：Live](vignettes/live-object-workflow.Rmd)
+- [Agentic workflow: closing the digest loop](vignettes/agentic-workflow.Rmd)
 - [Getting started vignette](vignettes/getting-started.Rmd)
 - [Stable public API and compatibility](docs/api/public-api-v1.md)
 - [Experimental complex-object families](docs/adapters/complex-object-families.md)

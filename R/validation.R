@@ -199,7 +199,7 @@ cap_validate_response <- function(digest, response,
   }
   structure(
     list(
-      schema = "cap.validation_result.v1",
+      schema = capr_schema("validation_result"),
       digestId = components$manifest$digestId,
       fingerprint = components$manifest$fingerprint,
       ok = !length(errors),

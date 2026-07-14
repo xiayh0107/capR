@@ -93,6 +93,23 @@ capr_sha256 <- function(x) {
   digest::digest(enc2utf8(x), algo = "sha256", serialize = FALSE)
 }
 
+# Runs `code` with every capr.* option cleared so conformance and evidence
+# runs are hermetic: a hostile or forgotten global option can never change
+# fixture results.
+.capr_option_names <- c(
+  "capr.default_budget", "capr.max_budget", "capr.max_followup_budget",
+  "capr.max_field_seconds", "capr.extra_high_risk_classes"
+)
+
+capr_with_builtin_defaults <- function(code) {
+  previous <- options(stats::setNames(
+    rep(list(NULL), length(.capr_option_names)),
+    .capr_option_names
+  ))
+  on.exit(options(previous), add = TRUE)
+  force(code)
+}
+
 capr_bounded_diagnostics <- function(x, max_chars = 1000L) {
   max_chars <- capr_assert_count(max_chars, "max_chars", "capr_artifact_invalid")
   value <- paste(enc2utf8(as.character(x)), collapse = "\n")

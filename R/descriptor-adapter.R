@@ -236,7 +236,7 @@ capr_descriptor_snapshot <- function(snapshot, family) {
 capr_new_snapshot_cache <- function(x, adapter) {
   cap_validate_adapter(adapter)
   cache <- new.env(parent = emptyenv())
-  cache$schema <- "capr.snapshot_cache.v1"
+  cache$schema <- capr_schema("snapshot_cache")
   cache$source <- x
   cache$implementation_signature <- capr_implementation_spec_hash(
     adapter$implementation_spec %||% list()
@@ -249,7 +249,7 @@ capr_cached_descriptor_snapshot <- function(x, context, family, snapshot_fn,
                                             implementation_signature) {
   cache <- context$.capr_snapshot_cache
   cache_ok <- is.environment(cache) &&
-    identical(cache$schema, "capr.snapshot_cache.v1") &&
+    identical(cache$schema, capr_schema("snapshot_cache")) &&
     identical(cache$source, x) &&
     identical(cache$implementation_signature, implementation_signature) &&
     is.environment(cache$entries)
@@ -321,7 +321,7 @@ capr_descriptor_source_ref <- function(x, context, family, label,
   classes <- unname(class(x))
   class_count <- min(length(classes), 80L)
   list(
-    schema = "cap.source_ref.v1",
+    schema = capr_schema("source_ref"),
     uri = capr_assert_scalar_character(
       uri, "uri", condition = "capr_artifact_invalid"
     ),
@@ -348,7 +348,7 @@ capr_descriptor_field_catalog <- function(family, catalog_id, labels) {
   priors <- c(overview = 1.30, structure = 1.10, semantics = 1.05)
   fields <- lapply(.capr_descriptor_sections, function(section) {
     list(
-      schema = "cap.field.v1",
+      schema = capr_schema("field"),
       id = sprintf("f1:%s@%s#compact", family, section),
       label = labels[[section]],
       description = unname(section_description[[section]]),
@@ -373,14 +373,10 @@ capr_descriptor_field_catalog <- function(family, catalog_id, labels) {
     )
   })
   list(
-    schema = "cap.field_catalog.v1",
+    schema = capr_schema("field_catalog"),
     catalogId = catalog_id,
     sourceType = family,
-    versions = list(
-      cap = "2026-07-05-draft",
-      fields = "f1",
-      catalog = "v1-experimental"
-    ),
+    versions = capr_catalog_versions("v1-experimental"),
     fields = fields
   )
 }

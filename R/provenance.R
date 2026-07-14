@@ -2,36 +2,53 @@
 #'
 #' @param adapter A resolved adapter.
 #' @param fingerprint_algorithm Named fingerprint algorithm.
+#' @param strategies Optional non-default strategy stamp (planner/tokenizer
+#'   ids and versions). Omitted entirely for built-in strategies so default
+#'   sidecars stay byte-identical.
 #' @return A serializable `resolution.capr.json` sidecar representation.
 #' @export
 cap_resolution_sidecar <- function(adapter,
-                                   fingerprint_algorithm = "unspecified") {
+                                   fingerprint_algorithm = "unspecified",
+                                   strategies = NULL) {
   cap_validate_adapter(adapter)
   fingerprint_algorithm <- capr_assert_scalar_character(
     fingerprint_algorithm,
     "fingerprint_algorithm",
     condition = "capr_sidecar_invalid"
   )
+  if (!is.null(strategies) &&
+      (!is.list(strategies) || is.null(names(strategies)) ||
+         any(!nzchar(names(strategies))))) {
+    capr_abort(
+      "capr_sidecar_invalid",
+      "`strategies` must be NULL or a named list",
+      field = "strategies"
+    )
+  }
   m <- adapter$metadata
   diagnostics <- cap_resolution_diagnostics(adapter)
+  payload <- list(
+    schema = capr_schema("resolution"),
+    adapter_id = m$id,
+    adapter_version = m$version,
+    provider = m$provider,
+    provider_version = m$provider_version,
+    source_family = m$source_family,
+    maturity = m$maturity,
+    semantic_level = m$semantic_level,
+    conformance_claim = m$conformance_claim,
+    resolution_mode = diagnostics$selected$mode %||% "unknown",
+    matched_class = diagnostics$matched_class,
+    priority = diagnostics$selected$priority %||% NULL,
+    binding_signature = capr_binding_signature(adapter),
+    fingerprint_algorithm = fingerprint_algorithm,
+    capr_version = .capr_version()
+  )
+  if (!is.null(strategies)) {
+    payload$strategies <- strategies
+  }
   structure(
-    capr_sort_object(list(
-      schema = "capr.resolution.v1",
-      adapter_id = m$id,
-      adapter_version = m$version,
-      provider = m$provider,
-      provider_version = m$provider_version,
-      source_family = m$source_family,
-      maturity = m$maturity,
-      semantic_level = m$semantic_level,
-      conformance_claim = m$conformance_claim,
-      resolution_mode = diagnostics$selected$mode %||% "unknown",
-      matched_class = diagnostics$matched_class,
-      priority = diagnostics$selected$priority %||% NULL,
-      binding_signature = capr_binding_signature(adapter),
-      fingerprint_algorithm = fingerprint_algorithm,
-      capr_version = .capr_version()
-    )),
+    capr_sort_object(payload),
     class = "capr_resolution_sidecar"
   )
 }
@@ -47,7 +64,7 @@ cap_adapter_pin <- function(adapter) {
       "adapter_id", "adapter_version", "provider", "provider_version",
       "source_family", "binding_signature"
     )],
-    schema = "capr.adapter_pin.v1",
+    schema = capr_schema("adapter_pin"),
     class = "capr_adapter_pin"
   )
 }
@@ -60,7 +77,7 @@ cap_adapter_pin <- function(adapter) {
 cap_check_adapter_pin <- function(adapter, pin) {
   cap_validate_adapter(adapter)
   if (!inherits(pin, "capr_adapter_pin") ||
-      !identical(attr(pin, "schema"), "capr.adapter_pin.v1")) {
+      !identical(attr(pin, "schema"), capr_schema("adapter_pin"))) {
     capr_abort("capr_adapter_pin_mismatch", "invalid adapter pin")
   }
   current <- unclass(cap_adapter_pin(adapter))
@@ -91,7 +108,7 @@ cap_check_adapter_pin <- function(adapter, pin) {
 #' @export
 cap_write_resolution_sidecar <- function(sidecar, path) {
   if (!inherits(sidecar, "capr_resolution_sidecar") ||
-      !identical(sidecar$schema, "capr.resolution.v1")) {
+      !identical(sidecar$schema, capr_schema("resolution"))) {
     capr_abort("capr_sidecar_invalid", "invalid resolution sidecar")
   }
   path <- path.expand(capr_assert_scalar_character(
@@ -126,7 +143,7 @@ cap_read_resolution_sidecar <- function(path) {
     "conformance_claim", "resolution_mode", "binding_signature",
     "fingerprint_algorithm", "capr_version"
   )
-  if (!identical(parsed$schema, "capr.resolution.v1") ||
+  if (!identical(parsed$schema, capr_schema("resolution")) ||
       length(setdiff(required, names(parsed)))) {
     capr_abort(
       "capr_sidecar_invalid",

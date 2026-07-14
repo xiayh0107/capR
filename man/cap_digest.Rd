@@ -7,12 +7,14 @@
 cap_digest(
   x,
   question = NULL,
-  budget = 800L,
+  budget = getOption("capr.default_budget", 800L),
   policy = cap_policy(),
   adapter = NULL,
   session = NULL,
   registry = cap_registry(),
-  ...
+  ...,
+  planner = NULL,
+  tokenizer = NULL
 )
 }
 \arguments{
@@ -31,6 +33,15 @@ cap_digest(
 \item{registry}{Adapter registry.}
 
 \item{...}{Context such as \code{label}, \code{uri}, or fixture metadata.}
+
+\item{planner}{Optional planner id or \code{\link[=cap_planner]{cap_planner()}} object; \code{NULL}
+keeps the built-in greedy value/cost strategy. Custom planner ids are
+stamped into the plan and the resolution sidecar.}
+
+\item{tokenizer}{Optional tokenizer id or \code{\link[=cap_tokenizer]{cap_tokenizer()}} object;
+\code{NULL} keeps the built-in \code{heuristic_v1} accounting. Custom tokenizer
+ids are stamped into the digest text header, every manifest row, and
+the resolution sidecar.}
 }
 \value{
 A \code{cap_digest} object containing canonical artifacts and capR

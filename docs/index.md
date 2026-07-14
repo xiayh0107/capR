@@ -20,9 +20,11 @@
 16. [Getting started vignette](../vignettes/getting-started.Rmd)
 17. [Table conformance](../vignettes/table-conformance.Rmd)
 18. [Response validation and follow-up](../vignettes/response-followup.Rmd)
-19. [Artifact I/O](../vignettes/artifact-io.Rmd)
-20. [CLI reference](cli.md)
-21. [Troubleshooting](troubleshooting.md)
+19. [Agentic workflow: closing the digest loop](../vignettes/agentic-workflow.Rmd)
+20. [Strategy plugins: planners, tokenizers, and options](../vignettes/strategy-plugins.Rmd)
+21. [Artifact I/O](../vignettes/artifact-io.Rmd)
+22. [CLI reference](cli.md)
+23. [Troubleshooting](troubleshooting.md)
 
 ## Adapter authors and implementers
 

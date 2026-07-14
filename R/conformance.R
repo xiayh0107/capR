@@ -277,7 +277,7 @@ capr_check_followup <- function() {
     fingerprint = capr_fixture_fingerprint("followup-basic")
   )
   rendered_gate <- list(
-    schema = "cap.gate_result.v1",
+    schema = capr_schema("gate_result"),
     decisions = lapply(gate$requests, function(decision) {
       list(
         fieldId = decision$request$fieldId,
@@ -379,7 +379,7 @@ cap_conformance_report <- function(checks) {
   info <- cap_vendor_info()
   structure(
     list(
-      schema = "cap.conformance_report.v1",
+      schema = capr_schema("conformance_report"),
       implementation = list(
         name = "capR",
         version = .capr_version(),
@@ -429,7 +429,8 @@ cap_conformance_report <- function(checks) {
 cap_run_fixtures <- function(scope = "digest", report = NULL, ...) {
   scope <- match.arg(scope, "digest")
   cap_verify_vendor()
-  checks <- list(
+  # Hermeticity: fixture evidence never depends on session capr.* options.
+  checks <- capr_with_builtin_defaults(list(
     capr_fixture_check(
       "fixtures/basic-table", capr_check_basic_table
     ),
@@ -446,7 +447,7 @@ cap_run_fixtures <- function(scope = "digest", report = NULL, ...) {
     capr_fixture_check(
       "fixtures/pack-table-basic", capr_check_pack
     )
-  )
+  ))
   result <- cap_conformance_report(checks)
   if (!is.null(report)) {
     report <- path.expand(capr_assert_scalar_character(

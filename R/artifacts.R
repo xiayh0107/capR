@@ -29,14 +29,14 @@ capr_validate_digest_artifact <- function(artifact) {
     "budgetUsed", "budgetEstimated", "fingerprint", "caveats"
   )
   if (!is.list(artifact) ||
-      !identical(artifact$schema, "cap.digest.v1") ||
+      !identical(artifact$schema, capr_schema("digest")) ||
       length(setdiff(required, names(artifact)))) {
     capr_abort(
       "capr_artifact_invalid",
       "invalid cap.digest.v1 artifact"
     )
   }
-  if (!identical(artifact$manifest$schema, "cap.manifest.v1")) {
+  if (!identical(artifact$manifest$schema, capr_schema("manifest"))) {
     capr_abort(
       "capr_artifact_invalid",
       "digest embeds an invalid manifest"
@@ -80,12 +80,16 @@ cap_write_artifacts <- function(x, dir, include_sidecars = TRUE, ...) {
     }
   } else {
     schema <- x$schema %||% attr(x, "schema")
-    filenames <- c(
-      "cap.validation_result.v1" = "validation.json",
-      "cap.gate_result.v1" = "gate.json",
-      "cap.digest_patch.v1" = "patch.json",
-      "cap.conformance_report.v1" = "conformance-report.json",
-      "cap.pack_conformance_report.v1" = "pack-conformance-report.json"
+    filenames <- stats::setNames(
+      c(
+        "validation.json", "gate.json", "patch.json",
+        "conformance-report.json", "pack-conformance-report.json"
+      ),
+      c(
+        capr_schema("validation_result"), capr_schema("gate_result"),
+        capr_schema("digest_patch"), capr_schema("conformance_report"),
+        capr_schema("pack_conformance_report")
+      )
     )
     if (is.null(schema) || !schema %in% names(filenames)) {
       capr_abort(
@@ -215,6 +219,7 @@ cap_read_artifacts <- function(dir, validate = TRUE, ...) {
       provenance = provenance,
       adapter_pin = NULL,
       adapter = NULL,
+      tokenizer = NULL,
       applied_patches = character()
     ),
     class = "cap_digest"

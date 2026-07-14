@@ -466,7 +466,7 @@ capr_plot_source_ref <- function(x, context = list()) {
   uri <- context$uri %||% attr(x, "capr_uri", exact = TRUE) %||%
     paste0("r-host://plot/", sub("^.*:", "", fingerprint))
   list(
-    schema = "cap.source_ref.v1",
+    schema = capr_schema("source_ref"),
     uri = capr_assert_scalar_character(
       uri, "uri", condition = "capr_artifact_invalid"
     ),
@@ -487,7 +487,7 @@ capr_plot_field_catalog <- function(x, context = list()) {
   field <- function(id, label, description, trust, cost, prior, tags,
                     extractor, renderer) {
     list(
-      schema = "cap.field.v1",
+      schema = capr_schema("field"),
       id = id,
       label = label,
       description = description,
@@ -512,14 +512,10 @@ capr_plot_field_catalog <- function(x, context = list()) {
     )
   }
   list(
-    schema = "cap.field_catalog.v1",
+    schema = capr_schema("field_catalog"),
     catalogId = "org.capr.ggplot.v1",
     sourceType = "plot",
-    versions = list(
-      cap = "2026-07-05-draft",
-      fields = "f1",
-      catalog = "v1-experimental"
-    ),
+    versions = capr_catalog_versions("v1-experimental"),
     fields = list(
       field(
         "f1:plot@overview#base",

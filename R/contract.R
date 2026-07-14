@@ -339,7 +339,7 @@ cap_test_adapter <- function(adapter, source, context = list()) {
           plan, adapter, source, policy, context
         )$outcomes[[field_id]]
         if (!identical(first$rendered, second$rendered) ||
-            nchar(first$rendered, type = "chars") > 20012L) {
+            nchar(first$rendered, type = "chars") > .capr_render_char_cap + 12L) {
           capr_abort(
             "capr_adapter_invalid",
             "renderer is not deterministic and bounded",
@@ -393,7 +393,7 @@ cap_test_adapter <- function(adapter, source, context = list()) {
   ok <- all(vapply(checks, `[[`, logical(1), "ok"))
   structure(
     list(
-      schema = "capr.adapter_contract_result.v1",
+      schema = capr_schema("adapter_contract_result"),
       ok = ok,
       adapter = adapter$metadata[c(
         "id", "version", "provider", "provider_version",

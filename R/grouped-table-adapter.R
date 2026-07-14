@@ -79,7 +79,7 @@ capr_grouped_table_field_catalog <- function(x, context = list()) {
   catalog <- capr_table_field_catalog(x, context)
   catalog$catalogId <- "org.capr.grouped_table.v1"
   catalog$fields[[length(catalog$fields) + 1L]] <- list(
-    schema = "cap.field.v1",
+    schema = capr_schema("field"),
     id = "f1:table@capr_grouping#compact",
     label = "Grouping",
     description = paste(

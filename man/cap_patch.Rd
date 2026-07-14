@@ -11,7 +11,8 @@ cap_patch(
   adapter = NULL,
   policy = cap_policy(),
   registry = cap_registry(),
-  ...
+  ...,
+  tokenizer = NULL
 )
 }
 \arguments{
@@ -28,6 +29,11 @@ cap_patch(
 \item{registry}{Adapter registry.}
 
 \item{...}{Runtime context.}
+
+\item{tokenizer}{Optional tokenizer id or \code{\link[=cap_tokenizer]{cap_tokenizer()}} object. It
+must match the digest's pinned accounting tokenizer; \code{NULL} reuses the
+digest's process-local tokenizer (or the built-in when the digest was
+built with \code{heuristic_v1}).}
 }
 \value{
 A canonical \code{cap.digest_patch.v1}.

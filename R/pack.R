@@ -185,7 +185,7 @@ cap_load_pack <- function(name = "table-basic",
     "provides", "status"
   )
   if (length(setdiff(required, names(frontmatter))) ||
-      !identical(frontmatter$schema, "cap.digest_pack.v1") ||
+      !identical(frontmatter$schema, capr_schema("digest_pack")) ||
       !identical(frontmatter$name, name) ||
       !frontmatter$status %in% c(
         "experimental", "draft", "active", "deprecated"
@@ -213,7 +213,7 @@ cap_load_pack <- function(name = "table-basic",
   }
   fields <- lapply(field_files, capr_parse_field_yaml)
   catalog <- list(
-    schema = "cap.field_catalog.v1",
+    schema = capr_schema("field_catalog"),
     catalogId = paste0("pack.", name),
     sourceType = unlist(frontmatter$source_types)[[1L]],
     versions = list(
@@ -233,7 +233,7 @@ cap_load_pack <- function(name = "table-basic",
   )))
   structure(
     list(
-      schema = "capr.digest_pack_host.v1",
+      schema = capr_schema("digest_pack_host"),
       name = name,
       sourceTypes = unname(unlist(frontmatter$source_types)),
       frontmatter = frontmatter,
@@ -260,7 +260,7 @@ cap_validate_pack <- function(pack) {
     )
   }
   list(
-    schema = "cap.pack_validation.v1",
+    schema = capr_schema("pack_validation"),
     pack = list(
       name = pack$name,
       sourceTypes = as.list(pack$sourceTypes),
@@ -290,7 +290,7 @@ cap_pack_conformance_report <- function(pack) {
   )
   structure(
     list(
-      schema = "cap.pack_conformance_report.v1",
+      schema = capr_schema("pack_conformance_report"),
       pack = pack$name,
       packVersion = pack$frontmatter$cap,
       status = pack$frontmatter$status,

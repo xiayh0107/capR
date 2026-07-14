@@ -15,6 +15,7 @@ Imports:
     jsonlite,
     methods
 Suggests:
+    aisdk,
     ape,
     arrow,
     callr,

@@ -8,6 +8,17 @@ capr_fallback_high_risk <- function(x) {
     "sf", "sfc", "igraph", "tbl_graph", "treedata", "recipe",
     "workflow", "model_fit", "merMod", "xml_document", "xml_node"
   )
+  # Hosts may only EXTEND the refusal list (fail-closed); an option can
+  # never remove a built-in high-risk class.
+  extra <- getOption("capr.extra_high_risk_classes", character())
+  if (!is.character(extra) || anyNA(extra)) {
+    capr_abort(
+      "capr_policy_invalid",
+      "`capr.extra_high_risk_classes` must be a character vector",
+      option = "capr.extra_high_risk_classes"
+    )
+  }
+  high_risk_classes <- c(high_risk_classes, extra)
   isS4(x) ||
     is.environment(x) ||
     inherits(x, "connection") ||
@@ -87,7 +98,7 @@ cap_structural_adapter <- function() {
   source_ref <- function(x, context = list()) {
     snapshot <- capr_fallback_snapshot(x)
     list(
-      schema = "cap.source_ref.v1",
+      schema = capr_schema("source_ref"),
       sourceType = "r_object",
       uri = sprintf(
         "r-host://structural/%s",
@@ -100,16 +111,12 @@ cap_structural_adapter <- function() {
   }
   field_catalog <- function(x, context = list()) {
     list(
-      schema = "cap.field_catalog.v1",
+      schema = capr_schema("field_catalog"),
       catalogId = "org.capr.structural_fallback.v1",
       sourceType = "r_object",
-      versions = list(
-        cap = "2026-07-05-draft",
-        fields = "f1",
-        catalog = "v1"
-      ),
+      versions = capr_catalog_versions(),
       fields = list(list(
-        schema = "cap.field.v1",
+        schema = capr_schema("field"),
         id = "f1:r_object@capr_structure#base",
         label = "R object structure",
         description = "Bounded shallow structure of an R object.",

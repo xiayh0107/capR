@@ -59,16 +59,42 @@ capr_patch_manifest_row <- function(field, candidate, outcome,
 #' @param policy Host policy.
 #' @param registry Adapter registry.
 #' @param ... Runtime context.
+#' @param tokenizer Optional tokenizer id or [cap_tokenizer()] object. It
+#'   must match the digest's pinned accounting tokenizer; `NULL` reuses the
+#'   digest's process-local tokenizer (or the built-in when the digest was
+#'   built with `heuristic_v1`).
 #' @return A canonical `cap.digest_patch.v1`.
 #' @export
 cap_patch <- function(digest, gate_result, source, adapter = NULL,
                       policy = cap_policy(), registry = cap_registry(),
-                      ...) {
+                      ..., tokenizer = NULL) {
   if (!inherits(digest, "cap_digest") ||
       !inherits(gate_result, "cap_gate_result")) {
     capr_abort(
       "capr_artifact_invalid",
       "patch materialization requires a digest and gate result"
+    )
+  }
+  manifest_tokenizer <- digest$manifest$budget$tokenizer
+  if (!is.null(tokenizer)) {
+    tokenizer <- capr_resolve_tokenizer(tokenizer)
+    if (!identical(tokenizer$id, manifest_tokenizer)) {
+      capr_abort(
+        "capr_tokenizer_invalid",
+        "tokenizer does not match the digest accounting pin",
+        expected = manifest_tokenizer,
+        actual = tokenizer$id
+      )
+    }
+  } else if (!is.null(digest$tokenizer)) {
+    tokenizer <- digest$tokenizer
+  } else if (identical(manifest_tokenizer, .capr_default_tokenizer_id)) {
+    tokenizer <- capr_builtin_tokenizer()
+  } else {
+    capr_abort(
+      "capr_tokenizer_invalid",
+      "digest accounting uses a non-default tokenizer; pass it explicitly",
+      tokenizer_id = manifest_tokenizer
     )
   }
   if (!identical(gate_result$digestId, digest$manifest$digestId) ||
@@ -174,13 +200,13 @@ cap_patch <- function(digest, gate_result, source, adapter = NULL,
     )
     plan <- structure(
       list(
-        schema = "capr.selection_plan.v1",
+        schema = capr_schema("selection_plan"),
         catalog_id = digest$catalog$catalogId,
         budget_requested = as.integer(
           decision$approvedBudget %||% candidate$estimated_cost
         ),
         budget_estimated_selected = candidate$estimated_cost,
-        planner = "capr-approved-followup-v1",
+        planner = .capr_followup_planner_id,
         tokenizer = digest$manifest$budget$tokenizer,
         question = decision$request$reason,
         candidates = list(candidate)
@@ -188,7 +214,7 @@ cap_patch <- function(digest, gate_result, source, adapter = NULL,
       class = "capr_selection_plan"
     )
     materialization <- cap_materialize(
-      plan, adapter, source, policy, context
+      plan, adapter, source, policy, context, tokenizer = tokenizer
     )
     outcome <- materialization$outcomes[[field_id]]
     row <- capr_patch_manifest_row(field, candidate, outcome, digest)
@@ -233,7 +259,7 @@ cap_patch <- function(digest, gate_result, source, adapter = NULL,
   )
   structure(
     list(
-      schema = "cap.digest_patch.v1",
+      schema = capr_schema("digest_patch"),
       patchId = sprintf(
         "cap-patch-%s-%s",
         digest$manifest$digestId,

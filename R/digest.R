@@ -29,13 +29,24 @@ capr_digest_id <- function(x, source_ref, fingerprint, context) {
 #' @param session Optional host session metadata.
 #' @param registry Adapter registry.
 #' @param ... Context such as `label`, `uri`, or fixture metadata.
+#' @param planner Optional planner id or [cap_planner()] object; `NULL`
+#'   keeps the built-in greedy value/cost strategy. Custom planner ids are
+#'   stamped into the plan and the resolution sidecar.
+#' @param tokenizer Optional tokenizer id or [cap_tokenizer()] object;
+#'   `NULL` keeps the built-in `heuristic_v1` accounting. Custom tokenizer
+#'   ids are stamped into the digest text header, every manifest row, and
+#'   the resolution sidecar.
 #' @return A `cap_digest` object containing canonical artifacts and capR
 #'   provenance separately.
 #' @export
-cap_digest <- function(x, question = NULL, budget = 800L,
+cap_digest <- function(x, question = NULL,
+                       budget = getOption("capr.default_budget", 800L),
                        policy = cap_policy(), adapter = NULL,
-                       session = NULL, registry = cap_registry(), ...) {
+                       session = NULL, registry = cap_registry(), ...,
+                       planner = NULL, tokenizer = NULL) {
   capr_validate_policy(policy)
+  planner <- capr_resolve_planner(planner)
+  tokenizer <- capr_resolve_tokenizer(tokenizer)
   context <- list(...)
   context$question <- question
   context$session <- session
@@ -76,14 +87,17 @@ cap_digest <- function(x, question = NULL, budget = 800L,
     catalog,
     budget = budget,
     question = question,
-    policy = policy
+    policy = policy,
+    planner = planner,
+    tokenizer_id = tokenizer$id
   )
   materialization <- cap_materialize(
     plan,
     resolved,
     x,
     policy,
-    context
+    context,
+    tokenizer = tokenizer
   )
   rendered <- cap_render_digest_text(
     source_ref,
@@ -118,10 +132,11 @@ cap_digest <- function(x, question = NULL, budget = 800L,
   }
   provenance <- cap_resolution_sidecar(
     resolved,
-    fingerprint_result$algorithm %||% "unspecified"
+    fingerprint_result$algorithm %||% "unspecified",
+    strategies = capr_strategies_sidecar(planner, tokenizer)
   )
   artifact <- list(
-    schema = "cap.digest.v1",
+    schema = capr_schema("digest"),
     id = digest_id,
     source = source_ref,
     text = rendered$text,
@@ -163,6 +178,7 @@ cap_digest <- function(x, question = NULL, budget = 800L,
       provenance = provenance,
       adapter_pin = pin,
       adapter = resolved,
+      tokenizer = tokenizer,
       applied_patches = character()
     ),
     class = "cap_digest"

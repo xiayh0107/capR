@@ -9,7 +9,7 @@ cap_render_digest_text(
   fingerprint,
   plan,
   materialization,
-  tokenizer = "heuristic_v1"
+  tokenizer = .capr_default_tokenizer_id
 )
 }
 \arguments{

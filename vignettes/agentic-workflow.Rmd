@@ -1,0 +1,182 @@
+---
+title: "Agentic workflow: closing the digest loop"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Agentic workflow: closing the digest loop}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+capR's core is a deterministic pipeline: `cap_digest()` compiles an object
+into bounded evidence, `cap_validate_response()` checks a model's citations,
+`cap_gate()` authorizes follow-up, and `cap_patch()`/`cap_apply_patch()`
+extend the digest. The quickstart documents that round trip as a ten-step
+recipe; the *agent session* layer ships it as code, so a model can actually
+drive the loop while every disclosure still passes through the gate.
+
+What this layer never does:
+
+- It never calls a model provider. The model call is injected by the host
+  (`ask` below) or lives in an external framework such as aisdk.
+- It never bypasses the gate. Every tool call and every turn is synthesized
+  into a `cap.contract_response.v1` and pushed through the full
+  validate -> gate -> patch -> apply path.
+- It never invents nondeterminism. Transcripts carry no timestamps and no
+  random ids; identical runs serialize to identical canonical JSON.
+
+## A closed loop with a scripted model
+
+Any `function(text) -> response` can stand in for the model. Here a scripted
+stand-in first requests the sample field, then answers with a claim that
+cites it.
+
+```{r}
+library(capR)
+
+orders <- data.frame(
+  order_id = c("A001", "A002"),
+  amount = c(12.5, 19)
+)
+
+session <- cap_agent_session(
+  orders,
+  question = "How many orders are there?",
+  budget = 500,
+  policy = cap_policy(max_followup_budget = 300)
+)
+session
+```
+
+The session eagerly builds the turn-0 digest. `cap_agent_prompt()` composes
+the model-facing text: deterministic instructions plus the digest.
+
+```{r}
+cat(substr(cap_agent_prompt(session), 1L, 400L))
+```
+
+```{r}
+scripted_model <- local({
+  turn <- 0L
+  function(prompt) {
+    turn <<- turn + 1L
+    if (turn == 1L) {
+      list(
+        claims = list(),
+        evidence = list(),
+        warnings = list(),
+        requests = list(list(
+          fieldId = "f1:table@sample#k10",
+          level = 1L,
+          budget = 300L,
+          reason = "Need bounded sample rows."
+        ))
+      )
+    } else {
+      list(
+        claims = list(list(
+          id = "claim-1",
+          text = "The table holds two orders.",
+          evidence = list("f1:table@shape#base", "f1:table@sample#k10")
+        )),
+        evidence = list(),
+        warnings = list(),
+        requests = list()
+      )
+    }
+  }
+})
+
+cap_agent_run(session, scripted_model)
+session
+```
+
+Turn one was gated, patched, and applied; turn two answered from disclosed
+evidence, closing the loop.
+
+```{r}
+vapply(session$turns, `[[`, character(1), "outcome")
+session$followup_remaining
+stopifnot(
+  session$stop_reason == "completed",
+  grepl('<field id="f1:table@sample#k10"', session$digest$text, fixed = TRUE)
+)
+```
+
+The transcript is the audit trail: every turn embeds the canonical
+validation, gate, and patch artifacts plus content hashes of the exact
+prompt and response.
+
+```{r}
+transcript <- cap_agent_transcript(session)
+transcript$finalBudget
+transcript$turns[[1L]]$gate$overallDecision
+```
+
+Set `artifact_dir` to publish `turn-NNN/` artifact directories and an
+atomically rewritten `transcript.capr.json` after every turn -- the same
+canonical files `cap_write_artifacts()` produces elsewhere.
+
+## Fail-closed outcomes
+
+Denials end the linear loop instead of looping forever, and a drifted source
+closes the session permanently.
+
+```{r}
+denied <- cap_agent_session(
+  orders,
+  budget = 500,
+  policy = cap_policy(max_followup_budget = 100)
+)
+cap_agent_run(denied, function(prompt) {
+  list(
+    claims = list(),
+    evidence = list(),
+    warnings = list(),
+    requests = list(list(
+      fieldId = "f1:table@sample#k10",
+      reason = "Too expensive for this budget."
+    ))
+  )
+})
+denied$stop_reason
+```
+
+## Driving the loop from aisdk
+
+With the suggested [aisdk](https://github.com/YuLab-SMU/aisdk) package
+installed, the same session becomes a set of native tools --
+`capr_read_digest`, `capr_request_fields`, `capr_submit_claims`, and
+`capr_session_status` -- and the aisdk agent runtime handles the tool loop.
+The provider credentials and the model call belong entirely to aisdk; capR
+only supplies the evidence tools.
+
+```{r, eval = FALSE}
+library(aisdk)
+
+session <- cap_agent_session(
+  orders,
+  question = "How many orders are there, and what do they look like?",
+  budget = 500,
+  policy = cap_policy(max_followup_budget = 300)
+)
+
+analyst <- cap_aisdk_agent(session, model = "claude-sonnet-5")
+result <- analyst$run("How many orders are there?")
+
+# Or register the tools on any aisdk loop yourself:
+tools <- cap_aisdk_tools(session)
+```
+
+However the model behaves, the host-side invariants hold: it can only cite
+disclosed field ids, only request fields listed in
+`<available_on_request>`, and every extra disclosure is decided by
+`cap_gate()` under the session policy -- never by the model.
+
+Model Context Protocol exposure is deliberately deferred: aisdk currently
+ships no MCP server, and ADR-0006 records the alternative (posit-dev
+mcptools over the same provider-neutral tool layer) for when a host needs
+one.
