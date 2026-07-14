@@ -2,6 +2,37 @@
 
 ## 1.1.0 - Unreleased
 
+### Agent layer hardening and evidence features (review-driven)
+
+- Grounding metrics: every agent turn now records a deterministic
+  `capr.agent_grounding.v1` block (claims, grounded claims, ungrounded
+  claim ids, cited fields, undisclosed citations, unused disclosed fields),
+  judged against the fields disclosed when the model answered; transcripts
+  expose the final turn's block as `finalGrounding`.
+- Bounded self-correction: `cap_agent_run(max_repairs =)` optionally
+  retries `invalid_response` turns with the validator's exact findings fed
+  back into the prompt. Default stays `0L` (fail-closed); repair turns
+  count toward `max_turns`; gate denials are never retried. Transcripts
+  record `repairsUsed`.
+- Prompt hardening: `cap_agent_instructions()` now declares digest content
+  as untrusted data, and instruction-bearing prompts fence the digest
+  between explicit BEGIN/END markers (spotlighting). `cap_agent_run()`
+  gains an `instructions` cadence knob (`every`/`first`/`none`).
+- Fail-closed fixes: the tool layer now catches only `capr_agent_invalid`,
+  so host/library bugs propagate instead of being replayed to the model;
+  `last_delta` resets every step (no stale delta prompts); reopening an
+  `artifact_dir` clears stale `turn-NNN/` directories; turns record
+  `gateSuperseded` when a gate approval was refused by the patch-time
+  fingerprint recheck.
+- Strategy seam fixes: tokenizer `count` failures and time-limit hits now
+  always surface as `capr_tokenizer_invalid` (never a raw `simpleError`),
+  with the cause as `parent`; strategy registration fingerprints closure
+  environments, so parameterized strategies with identical source conflict
+  instead of silently keeping the first implementation; `cap_patch()`
+  cross-checks the digest's process-local tokenizer against the manifest
+  accounting pin; empty `cap_list_planners()`/`cap_list_tokenizers()` keep
+  their `id` column.
+
 ### Strategy seams (experimental)
 
 - Added pluggable selection planners (`cap_planner()`,

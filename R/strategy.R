@@ -69,14 +69,51 @@ capr_strategy_signature <- function(strategy, fn_field) {
   )
 }
 
+# Fingerprint the data a strategy closure captured. Source-identical
+# closures from a parameterized factory differ only here, so ignoring the
+# environment would let a re-registration silently keep the FIRST
+# implementation. Top-level functions (global/namespace environments) carry
+# unrelated state and are treated as having no captured data.
+capr_strategy_env_signature <- function(fn) {
+  env <- environment(fn)
+  if (is.null(env) || identical(env, globalenv()) ||
+      identical(env, baseenv()) || identical(env, emptyenv()) ||
+      isNamespace(env)) {
+    return("top-level")
+  }
+  values <- tryCatch(
+    as.list(env, all.names = TRUE),
+    error = function(e) NULL
+  )
+  if (is.null(values)) return(NULL)
+  values <- values[capr_stable_order(names(values))]
+  tryCatch(
+    digest::digest(values, algo = "sha256"),
+    error = function(e) NULL
+  )
+}
+
+capr_strategy_identical <- function(existing, strategy, fn_field) {
+  if (!identical(
+    capr_strategy_signature(existing, fn_field),
+    capr_strategy_signature(strategy, fn_field)
+  )) {
+    return(FALSE)
+  }
+  existing_env <- capr_strategy_env_signature(existing[[fn_field]])
+  new_env <- capr_strategy_env_signature(strategy[[fn_field]])
+  if (is.null(existing_env) || is.null(new_env)) {
+    # Unfingerprintable captured data: only object identity proves equality.
+    return(identical(existing[[fn_field]], strategy[[fn_field]]))
+  }
+  identical(existing_env, new_env)
+}
+
 capr_strategy_register <- function(kind, strategy, fn_field, condition) {
   registry <- .capr_strategy_registry()
   existing <- registry[[kind]][[strategy$id]]
   if (!is.null(existing)) {
-    if (identical(
-      capr_strategy_signature(existing, fn_field),
-      capr_strategy_signature(strategy, fn_field)
-    )) {
+    if (capr_strategy_identical(existing, strategy, fn_field)) {
       return(invisible(strategy))
     }
     capr_abort(
@@ -110,7 +147,7 @@ capr_strategy_unregister <- function(kind, id) {
 
 capr_strategy_list <- function(kind) {
   entries <- .capr_strategy_registry()[[kind]]
-  ids <- capr_stable_sort(names(entries))
+  ids <- as.character(capr_stable_sort(names(entries)))
   data.frame(
     id = ids,
     version = vapply(

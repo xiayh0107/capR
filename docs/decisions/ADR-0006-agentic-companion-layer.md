@@ -75,6 +75,33 @@ pinned catalog that `cap_read_artifacts()` cannot restore). All new exports
 are experimental and inherit no conformance claim; the conformance fixtures
 and interop harness are unaffected.
 
+## Amendment (2026-07-14, post-review)
+
+An execution-verified review plus a literature pass amended three points:
+
+1. **Bounded self-correction (partially reverses "no auto-retry in v1").**
+   Research on agent self-correction consistently finds that concrete,
+   execution-based validation feedback substantially improves correction
+   rates, while unbounded retry loops are an availability risk needing an
+   explicit correction budget. capR has exactly such a validator, so
+   `cap_agent_run(max_repairs = 0L)` now offers an opt-in, bounded repair
+   loop that feeds `cap_validate_response()` findings back verbatim.
+   The default remains fail-closed; only validation failures (never
+   deterministic gate denials) are repairable.
+2. **Grounding metrics.** Attribution research treats verifiable grounding
+   as a deployment prerequisite; each turn now carries a deterministic
+   `capr.agent_grounding.v1` block computed against the pre-step manifest.
+3. **Spotlighting.** In line with data/control-flow-separation defenses
+   (CaMeL and successors), the instruction constant declares digest content
+   untrusted, and instruction-bearing prompts fence it between explicit
+   BEGIN/END markers. The gate remains the actual enforcement point; the
+   framing only reduces model confusion.
+
+The same review narrowed the tool layer's condition handling to
+`capr_agent_invalid` (host bugs must propagate), added closure-environment
+fingerprints to strategy registration, and made tokenizer failures
+uniformly typed.
+
 ## Alternatives
 
 A monolithic "submit one contract-response JSON" tool was rejected: composing

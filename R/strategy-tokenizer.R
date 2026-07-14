@@ -92,21 +92,43 @@ capr_resolve_tokenizer <- function(tokenizer) {
 }
 
 # Budget accounting must never fail open: a count violation aborts instead of
-# degrading to zero cost.
+# degrading to zero cost. The count runs inside the field's elapsed-time
+# limit, so interrupts and time-limit errors must surface as the typed
+# condition too (mirroring the extractor/renderer guards), never as a raw
+# simpleError escaping cap_digest.
 capr_tokenizer_count <- function(tokenizer, field_id, rendered) {
   count <- tryCatch(
     tokenizer$count(rendered, field_id),
+    interrupt = function(e) e,
     error = function(e) e
   )
-  if (inherits(count, "condition") ||
-      !is.numeric(count) || length(count) != 1L || is.na(count) ||
+  # An exceeded elapsed-time limit re-raises at every subsequent check until
+  # reset; disarm immediately so the typed condition below is the only
+  # thing that can escape. Accounting is the field's final step, and the
+  # caller's own reset still runs on exit.
+  setTimeLimit(cpu = Inf, elapsed = Inf, transient = FALSE)
+  if (inherits(count, "condition")) {
+    timed_out <- inherits(count, "interrupt") ||
+      grepl("time limit", conditionMessage(count), fixed = TRUE)
+    capr_abort(
+      "capr_tokenizer_invalid",
+      if (timed_out) {
+        "tokenizer `count` exceeded the field time budget"
+      } else {
+        "tokenizer `count` failed"
+      },
+      tokenizer_id = tokenizer$id,
+      field_id = field_id,
+      parent = count
+    )
+  }
+  if (!is.numeric(count) || length(count) != 1L || is.na(count) ||
       !is.finite(count) || count < 0 || count != floor(count)) {
     capr_abort(
       "capr_tokenizer_invalid",
       "tokenizer `count` must return one non-negative integer",
       tokenizer_id = tokenizer$id,
-      field_id = field_id,
-      parent = if (inherits(count, "condition")) count else NULL
+      field_id = field_id
     )
   }
   as.integer(count)

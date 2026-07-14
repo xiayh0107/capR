@@ -4,7 +4,14 @@
 \alias{cap_agent_run}
 \title{Run an agent session loop with a host-supplied model call}
 \usage{
-cap_agent_run(session, ask, max_turns = NULL, ...)
+cap_agent_run(
+  session,
+  ask,
+  max_turns = NULL,
+  ...,
+  instructions = c("every", "first", "none"),
+  max_repairs = 0L
+)
 }
 \arguments{
 \item{session}{An active \code{capr_agent_session}.}
@@ -15,6 +22,18 @@ returns a contract response (R list, JSON string, or JSON file path).}
 \item{max_turns}{Optional override of the session turn limit.}
 
 \item{...}{Reserved.}
+
+\item{instructions}{When the \code{\link[=cap_agent_instructions]{cap_agent_instructions()}} preamble is sent:
+\code{"every"} turn (safe default for stateless \code{ask} clients), only the
+\code{"first"} turn (saves tokens when the host keeps chat history), or
+\code{"none"}.}
+
+\item{max_repairs}{Correction budget: how many \code{invalid_response} turns
+may be retried with the deterministic validation errors fed back into
+the next prompt. The default \code{0L} keeps the fail-closed behavior
+(invalid responses end the loop immediately). Repair turns are real
+turns and still count toward \code{max_turns}. Only validation failures are
+repairable; gate denials are deterministic and never retried.}
 }
 \value{
 The session, invisibly. \code{session$stop_reason} is one of

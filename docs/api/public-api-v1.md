@@ -112,7 +112,10 @@ selection decision).
 `cap_agent_run()`, `cap_agent_transcript()`, and `cap_agent_instructions()`
 compose the stable round-trip APIs into a multi-turn session; with the
 suggested `aisdk` package, `cap_aisdk_tools()` and `cap_aisdk_agent()`
-expose a session as native aisdk tools. All of these are
+expose a session as native aisdk tools. Turns record deterministic
+`capr.agent_grounding.v1` metrics, and `cap_agent_run()` supports an
+opt-in bounded repair budget (`max_repairs`, default `0L`) plus an
+instruction-cadence knob. All of these are
 `maturity = experimental`, inherit no conformance claim, and never call a
 model provider: the model response is always supplied by the host. Session
 transcripts use the `capr.agent_turn.v1` / `capr.agent_transcript.v1`

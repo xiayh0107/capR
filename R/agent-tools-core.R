@@ -142,7 +142,7 @@ capr_agent_tool_request_fields <- function(session, requests) {
         requests = normalized
       ))
     },
-    capr_error = function(condition) condition
+    capr_agent_invalid = function(condition) condition
   )
   if (inherits(turn, "condition")) {
     return(capr_agent_tool_error(tool, turn))
@@ -224,7 +224,7 @@ capr_agent_tool_submit_claims <- function(session, claims) {
         requests = list()
       ))
     },
-    capr_error = function(condition) condition
+    capr_agent_invalid = function(condition) condition
   )
   if (inherits(turn, "condition")) {
     return(capr_agent_tool_error(tool, turn))

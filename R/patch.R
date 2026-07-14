@@ -88,6 +88,14 @@ cap_patch <- function(digest, gate_result, source, adapter = NULL,
     }
   } else if (!is.null(digest$tokenizer)) {
     tokenizer <- digest$tokenizer
+    if (!identical(tokenizer$id, manifest_tokenizer)) {
+      capr_abort(
+        "capr_tokenizer_invalid",
+        "digest process-local tokenizer does not match the accounting pin",
+        expected = manifest_tokenizer,
+        actual = tokenizer$id
+      )
+    }
   } else if (identical(manifest_tokenizer, .capr_default_tokenizer_id)) {
     tokenizer <- capr_builtin_tokenizer()
   } else {

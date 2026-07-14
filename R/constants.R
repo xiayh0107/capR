@@ -21,6 +21,7 @@
   adapter = "capr.adapter.v1",
   adapter_contract_result = "capr.adapter_contract_result.v1",
   adapter_pin = "capr.adapter_pin.v1",
+  agent_grounding = "capr.agent_grounding.v1",
   agent_tool_result = "capr.agent_tool_result.v1",
   agent_transcript = "capr.agent_transcript.v1",
   agent_turn = "capr.agent_turn.v1",

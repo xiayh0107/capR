@@ -108,17 +108,49 @@ stopifnot(
 
 The transcript is the audit trail: every turn embeds the canonical
 validation, gate, and patch artifacts plus content hashes of the exact
-prompt and response.
+prompt and response. Each turn also carries a deterministic grounding
+block -- how many claims were fully anchored in disclosed fields, which
+citations pointed at undisclosed fields, and which disclosures went unused:
 
 ```{r}
 transcript <- cap_agent_transcript(session)
 transcript$finalBudget
 transcript$turns[[1L]]$gate$overallDecision
+str(transcript$finalGrounding)
 ```
 
 Set `artifact_dir` to publish `turn-NNN/` artifact directories and an
 atomically rewritten `transcript.capr.json` after every turn -- the same
 canonical files `cap_write_artifacts()` produces elsewhere.
+
+## Bounded self-correction
+
+By default an invalid response ends the loop (fail-closed). Hosts that want
+one or two repair attempts can set a correction budget: the validator's
+exact findings are fed back into the retry prompt, repair turns still count
+toward `max_turns`, and deterministic gate denials are never retried.
+
+```{r}
+repairing <- cap_agent_session(orders, budget = 500)
+attempts <- 0L
+cap_agent_run(
+  repairing,
+  function(prompt) {
+    attempts <<- attempts + 1L
+    evidence <- if (attempts == 1L) "f1:table@wrong#id" else "f1:table@shape#base"
+    list(
+      claims = list(list(
+        id = "claim-1",
+        text = "Two orders are recorded.",
+        evidence = list(evidence)
+      )),
+      evidence = list(), warnings = list(), requests = list()
+    )
+  },
+  max_repairs = 1L
+)
+c(repairing$stop_reason, repairing$repairs_used)
+```
 
 ## Fail-closed outcomes
 
