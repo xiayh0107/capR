@@ -102,6 +102,29 @@ The same review narrowed the tool layer's condition handling to
 fingerprints to strategy registration, and made tokenizer failures
 uniformly typed.
 
+## Amendment (2026-07-15, dependency posture and bridges)
+
+Two statements above have been overtaken by facts, and the integration
+gained a second direction:
+
+1. **CRAN status corrected.** "aisdk is not on CRAN" is no longer true:
+   aisdk 1.4.12 has been on CRAN since 2026-06-02. A CRAN release of capR
+   no longer needs `Additional_repositories` for the aisdk Suggests entry.
+2. **MCP exposure re-planned.** aisdk core still ships no MCP server, but
+   the family satellite `aisdk.mcp` (MCP client + server) now exists. MCP
+   exposure of the capR tool surface is now planned through the
+   `aisdk.evidence` bridge satellite over `aisdk.mcp`, superseding the
+   mcptools-only fallback recorded above (which stays valid for ellmer
+   hosts).
+3. **Reverse-direction bridges added.** `cap_aisdk_tokenizer()` (budget
+   accounting through `aisdk::count_tokens()`: Anthropic-native exact
+   counts with heuristic fallback, pinned like any custom tokenizer) and
+   `cap_aisdk_ask()` (a schema-constrained `ask` factory for
+   `cap_agent_run()` over `aisdk::generate_object()` structured output)
+   complement the tools/agent adapters above. aisdk stays Suggests-only,
+   and the model/network call still happens inside aisdk on the host's
+   behalf -- never in capR core.
+
 ## Alternatives
 
 A monolithic "submit one contract-response JSON" tool was rejected: composing

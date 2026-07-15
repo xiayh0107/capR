@@ -169,3 +169,197 @@ cap_aisdk_agent <- function(session, name = "capr-analyst",
     ...
   )
 }
+
+# Reverse-direction bridges. The adapters above hand capR's evidence tools
+# to aisdk; the two factories below hand aisdk's model-side capabilities
+# (token accounting, structured output) to capR's strategy and agent seams.
+# capR core still ships zero network code: any network traffic happens
+# inside aisdk, on the host's behalf, only when the host installs these.
+
+capr_aisdk_model <- function(model, condition, caller) {
+  if (inherits(model, "LanguageModelV1")) {
+    return(model)
+  }
+  if (is.character(model) && length(model) == 1L && !is.na(model) &&
+      nzchar(model)) {
+    return(model)
+  }
+  capr_abort(
+    condition,
+    sprintf(
+      paste(
+        "`model` for %s must be an aisdk LanguageModelV1 object or a",
+        "model id string such as \"anthropic:claude-sonnet-5\""
+      ),
+      caller
+    ),
+    field = "model"
+  )
+}
+
+capr_aisdk_default_tokenizer_id <- function(model) {
+  label <- if (is.character(model)) model else model$model_id
+  if (!is.character(label) || length(label) != 1L || is.na(label) ||
+      !nzchar(label)) {
+    capr_abort(
+      "capr_tokenizer_invalid",
+      "aisdk model exposes no model id; pass `id` explicitly",
+      field = "id"
+    )
+  }
+  paste0("aisdk-", gsub("[^a-z0-9._-]+", "-", tolower(label)))
+}
+
+#' Budget tokenizer backed by aisdk token counting
+#'
+#' Builds a [cap_tokenizer()] whose `count` function calls
+#' `aisdk::count_tokens()` on every rendered field, so digest budget
+#' accounting matches what the model provider will actually charge.
+#' Providers with a native counting endpoint (Anthropic
+#' `/messages/count_tokens`) yield model-exact counts; other providers use
+#' aisdk's local heuristic estimate.
+#'
+#' Unlike the built-in tokenizer, counting through this one MAY perform a
+#' network call (the Anthropic endpoint), and aisdk falls back to its local
+#' heuristic when that endpoint is unreachable: counts are model-exact when
+#' online but are not guaranteed reproducible offline. capR itself still
+#' ships zero network code -- the call happens inside aisdk, on the host's
+#' behalf, only because the host installed this tokenizer. Each count runs
+#' under the digest's per-field time limit, and any counting failure
+#' surfaces as a typed `capr_tokenizer_invalid` error; budget accounting
+#' never fails open.
+#'
+#' Accounting is pinned: [cap_patch()] refuses any tokenizer other than the
+#' one the digest was built with, so reuse the same tokenizer object (or
+#' its registered id) for every follow-up patch of the same digest.
+#'
+#' @param model An aisdk model: a `LanguageModelV1` object or a model id
+#'   string such as `"anthropic:claude-sonnet-5"` (strings are resolved by
+#'   aisdk at count time).
+#' @param id Tokenizer id; defaults to the model's id, lowercased, invalid
+#'   characters replaced with `-`, and prefixed with `aisdk-` (for example
+#'   `aisdk-claude-sonnet-5`).
+#' @param version Semantic version recorded for the tokenizer.
+#' @return A `capr_tokenizer` with `provider = "aisdk"`.
+#' @export
+cap_aisdk_tokenizer <- function(model, id = NULL, version = "1.0.0") {
+  capr_require_suggests("aisdk", "cap_aisdk_tokenizer()")
+  model <- capr_aisdk_model(
+    model, "capr_tokenizer_invalid", "cap_aisdk_tokenizer()"
+  )
+  cap_tokenizer(
+    id = id %||% capr_aisdk_default_tokenizer_id(model),
+    version = version,
+    provider = "aisdk",
+    count = function(rendered, field_id) {
+      as.integer(aisdk::count_tokens(model, prompt = rendered))
+    }
+  )
+}
+
+# Explicit z_* mirror of cap.contract_response.v1 (see
+# capr_normalize_response): claims need id + text + evidence, requests need
+# fieldId + reason with optional level/budget, and all four top-level keys
+# are required so the model always emits the complete envelope.
+capr_aisdk_contract_schema <- function() {
+  aisdk::z_object(
+    claims = aisdk::z_array(
+      items = aisdk::z_object(
+        id = aisdk::z_string("Short stable claim id, e.g. \"claim-1\"."),
+        text = aisdk::z_string("One factual statement."),
+        evidence = aisdk::z_array(
+          items = aisdk::z_string("A disclosed digest field id."),
+          description = "Digest field ids that support this claim."
+        ),
+        .required = c("id", "text", "evidence")
+      ),
+      description = "Claims with evidence citations; empty while requesting."
+    ),
+    evidence = aisdk::z_array(
+      items = aisdk::z_string("A disclosed digest field id."),
+      description = "Optional top-level citations; ids must be unique."
+    ),
+    warnings = aisdk::z_array(
+      items = aisdk::z_string("One caveat about the answer."),
+      description = "Optional caveats; usually empty."
+    ),
+    requests = aisdk::z_array(
+      items = aisdk::z_object(
+        fieldId = aisdk::z_string(
+          "Exact id copied from <available_on_request>."
+        ),
+        reason = aisdk::z_string(
+          "One sentence: why this field is needed for the question."
+        ),
+        level = aisdk::z_integer(
+          "Detail level shown for this field.",
+          nullable = TRUE
+        ),
+        budget = aisdk::z_integer(
+          "Token budget to spend; defaults to the field's estimated cost.",
+          nullable = TRUE
+        ),
+        .required = c("fieldId", "reason")
+      ),
+      description = "Follow-up disclosure requests; empty when answering."
+    ),
+    .required = c("claims", "evidence", "warnings", "requests")
+  )
+}
+
+#' Schema-constrained ask function over aisdk structured output
+#'
+#' Factory producing the `ask` callback for [cap_agent_run()], implemented
+#' with `aisdk::generate_object()`: the model is forced (`mode = "tool"`) or
+#' instructed and re-asked (`mode = "json"`) to reply with an object that
+#' parses as `cap.contract_response.v1`, which slashes `invalid_response`
+#' turns and repair churn compared with free-text JSON replies.
+#'
+#' capR never calls a model: this factory hands the network call to aisdk,
+#' on the host's behalf, under the host's own provider credentials. Each
+#' call returns aisdk's parsed object verbatim -- even when aisdk's own
+#' schema check still failed after `max_retries` re-asks -- because
+#' [cap_validate_response()] remains the semantic authority: a malformed
+#' object becomes a typed `invalid_response` turn (repairable via
+#' `cap_agent_run(max_repairs =)`), and a reply from which aisdk could
+#' parse no object at all is `NULL`, which the core rejects fail-closed as
+#' `capr_artifact_invalid`.
+#'
+#' @param model An aisdk model: a `LanguageModelV1` object or a model id
+#'   string such as `"anthropic:claude-sonnet-5"`.
+#' @param mode Structured-output mode: `"tool"` (default; the schema is one
+#'   forced tool call -- most reliable on models with native function
+#'   calling) or `"json"` (JSON parsed out of the model text).
+#' @param max_retries How many times aisdk re-asks the model when its
+#'   output does not match the schema before handing the result to capR
+#'   anyway.
+#' @param ... Passed through to `aisdk::generate_object()` (for example
+#'   `system`, `temperature`, `max_tokens`).
+#' @return `function(prompt)` returning a contract-response list, suitable
+#'   as the `ask` argument of [cap_agent_run()].
+#' @export
+cap_aisdk_ask <- function(model, mode = c("tool", "json"),
+                          max_retries = 1L, ...) {
+  capr_require_suggests("aisdk", "cap_aisdk_ask()")
+  model <- capr_aisdk_model(model, "capr_agent_invalid", "cap_aisdk_ask()")
+  mode <- match.arg(mode)
+  max_retries <- capr_assert_count(
+    max_retries, "max_retries", condition = "capr_agent_invalid"
+  )
+  schema <- capr_aisdk_contract_schema()
+  extra <- list(...)
+  function(prompt) {
+    result <- do.call(aisdk::generate_object, c(
+      list(
+        model = model,
+        prompt = prompt,
+        schema = schema,
+        schema_name = "cap_contract_response",
+        mode = mode,
+        max_retries = max_retries
+      ),
+      extra
+    ))
+    result$object
+  }
+}

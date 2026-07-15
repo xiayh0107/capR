@@ -130,9 +130,12 @@ cap_agent_transcript(session)                     # who saw what, and why
 analyst <- cap_aisdk_agent(session, model = "claude-sonnet-5")  # or any provider
 ```
 
-However the model behaves, it can only cite disclosed fields, only request
-listed ones, and every extra disclosure is decided by the gate under your
-policy. See `vignette("agentic-workflow")`.
+aisdk can also supply model-exact budget accounting
+(`cap_aisdk_tokenizer()`) and schema-constrained replies that always parse
+as the contract (`cap_aisdk_ask()`). However the model behaves, it can
+only cite disclosed fields, only request listed ones, and every extra
+disclosure is decided by the gate under your policy. See
+`vignette("agentic-workflow")`.
 
 ## Install
 

@@ -95,8 +95,18 @@
   network code and never calls a model provider.
 - Added the `agentic-workflow` vignette, ADR-0006, and the
   `capr_agent_invalid` / `capr_dependency_missing` condition classes.
-- MCP server exposure is deferred (aisdk 1.5.0 has no MCP server surface);
-  ADR-0006 records the mcptools alternative.
+- Added `cap_aisdk_tokenizer()`: a budget tokenizer over
+  `aisdk::count_tokens()` for model-exact accounting (Anthropic-native
+  counting endpoint; aisdk's local heuristic for other providers and as
+  offline fallback), stamped and patch-pinned like any custom tokenizer.
+- Added `cap_aisdk_ask()`: a schema-constrained `ask` factory for
+  `cap_agent_run()` over `aisdk::generate_object()` structured output
+  (forced tool call or JSON mode), so model replies parse as
+  `cap.contract_response.v1` by construction while
+  `cap_validate_response()` stays the semantic authority.
+- MCP server exposure remains deferred from capR itself; ADR-0006 (as
+  amended) records the plan to expose the tool surface through the
+  aisdk.evidence bridge satellite over aisdk.mcp.
 
 ### Documentation
 

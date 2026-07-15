@@ -208,7 +208,7 @@ disclosed field ids, only request fields listed in
 `<available_on_request>`, and every extra disclosure is decided by
 `cap_gate()` under the session policy -- never by the model.
 
-Model Context Protocol exposure is deliberately deferred: aisdk currently
-ships no MCP server, and ADR-0006 records the alternative (posit-dev
-mcptools over the same provider-neutral tool layer) for when a host needs
-one.
+Model Context Protocol exposure is deliberately deferred from capR
+itself: the aisdk family now ships an MCP satellite (aisdk.mcp), and
+ADR-0006 records the plan to expose this tool surface through the
+aisdk.evidence bridge over it.
