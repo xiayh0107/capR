@@ -46,9 +46,12 @@ read_fixture_text <- function(...) {
   )
 }
 
+fixture_fingerprint <- function(family = "basic-table") {
+  read_fixture_json(family, "policy.json")$fingerprint
+}
+
 fixture_table <- function(family = "basic-table") {
   source <- read_fixture_json(family, "source.json")
-  policy <- read_fixture_json(family, "policy.json")
   columns <- lapply(source$columns, function(column) {
     examples <- unlist(column$examples, use.names = FALSE)
     values <- switch(
@@ -79,7 +82,6 @@ fixture_table <- function(family = "basic-table") {
   attr(table, "capr_uri") <- sprintf(
     "fixture://%s/source.json", artifact_family
   )
-  attr(table, "capr_fixture_fingerprint") <- policy$fingerprint
   if (!is.null(source$sampleRows)) {
     attr(table, "capr_fixture_sample_rows") <- source$sampleRows
   }

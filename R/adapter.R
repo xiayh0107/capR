@@ -2,6 +2,134 @@
 .capr_semantic_levels <- c("structural", "table", "domain")
 .capr_binding_kinds <- c("extractors", "redactors", "renderers")
 
+capr_validate_implementation_spec <- function(x, path = "implementation_spec",
+                                              depth = 0L) {
+  if (depth > 16L) {
+    capr_abort(
+      "capr_adapter_invalid",
+      "adapter implementation spec exceeds the nesting limit",
+      field = path
+    )
+  }
+  if (is.null(x)) return(invisible(TRUE))
+  if (is.object(x) || isS4(x) || is.environment(x) || is.function(x) ||
+      is.language(x) || typeof(x) %in% c(
+        "externalptr", "weakref", "promise", "raw", "complex"
+      )) {
+    capr_abort(
+      "capr_adapter_invalid",
+      paste(
+        "adapter implementation specs may contain only plain JSON-safe",
+        "lists and logical, integer, double, or character vectors"
+      ),
+      field = path,
+      type = typeof(x)
+    )
+  }
+  if (is.atomic(x)) {
+    item_names <- attr(x, "names", exact = TRUE)
+    if (!is.null(item_names) &&
+        (length(item_names) != length(x) || anyNA(item_names) ||
+         any(!nzchar(item_names)) || anyDuplicated(item_names))) {
+      capr_abort(
+        "capr_adapter_invalid",
+        "named implementation-spec vectors require unique non-empty names",
+        field = path
+      )
+    }
+    if (!typeof(x) %in% c("logical", "integer", "double", "character") ||
+        anyNA(x) || (is.double(x) && any(!is.finite(x)))) {
+      capr_abort(
+        "capr_adapter_invalid",
+        "adapter implementation spec contains a non-JSON scalar value",
+        field = path,
+        type = typeof(x)
+      )
+    }
+    return(invisible(TRUE))
+  }
+  if (!is.list(x)) {
+    capr_abort(
+      "capr_adapter_invalid",
+      "adapter implementation spec contains an unsupported value",
+      field = path,
+      type = typeof(x)
+    )
+  }
+  item_names <- attr(x, "names", exact = TRUE)
+  if (!is.null(item_names) &&
+      (length(item_names) != length(x) || anyNA(item_names) ||
+       any(!nzchar(item_names)) || anyDuplicated(item_names))) {
+    capr_abort(
+      "capr_adapter_invalid",
+      "named implementation-spec lists require unique non-empty names",
+      field = path
+    )
+  }
+  for (index in seq_along(x)) {
+    child <- if (is.null(item_names)) {
+      sprintf("%s[[%d]]", path, index)
+    } else {
+      sprintf("%s$%s", path, item_names[[index]])
+    }
+    capr_validate_implementation_spec(
+      .subset2(x, index), path = child, depth = depth + 1L
+    )
+  }
+  invisible(TRUE)
+}
+
+capr_implementation_spec_signature <- function(x) {
+  capr_validate_implementation_spec(x)
+  if (is.null(x)) return(list(type = "null"))
+  if (is.atomic(x)) {
+    item_names <- attr(x, "names", exact = TRUE)
+    return(list(
+      type = typeof(x),
+      length = as.integer(length(x)),
+      names = if (is.null(item_names)) NULL else as.list(item_names),
+      value = unname(x)
+    ))
+  }
+  item_names <- attr(x, "names", exact = TRUE)
+  list(
+    type = "list",
+    names = if (is.null(item_names)) NULL else as.list(item_names),
+    values = lapply(x, capr_implementation_spec_signature)
+  )
+}
+
+capr_implementation_spec_hash <- function(x) {
+  capr_sha256(capr_canonical_json(capr_implementation_spec_signature(x)))
+}
+
+capr_assert_implementation_spec <- function(x) {
+  capr_validate_implementation_spec(x)
+  tryCatch(
+    capr_canonical_json(capr_implementation_spec_signature(x)),
+    error = function(e) capr_abort(
+      "capr_adapter_invalid",
+      "adapter implementation spec is not canonical JSON",
+      field = "implementation_spec",
+      parent = e
+    )
+  )
+  invisible(TRUE)
+}
+
+capr_function_source_signature <- function(binding) {
+  list(
+    formals = paste(
+      deparse(formals(binding), width.cutoff = 500L),
+      collapse = "\n"
+    ),
+    body = paste(
+      deparse(body(binding), width.cutoff = 500L),
+      collapse = "\n"
+    )
+  )
+}
+
 capr_validate_bindings <- function(bindings) {
   if (!is.list(bindings) || is.null(names(bindings))) {
     capr_abort("capr_adapter_invalid", "`bindings` must be a named list", field = "bindings")
@@ -61,12 +189,15 @@ capr_validate_bindings <- function(bindings) {
 #' @param source_ref,field_catalog,fingerprint Lifecycle functions.
 #' @param bindings Named `extractors`, `redactors`, and
 #'   `renderers` maps.
+#' @param implementation_spec Optional JSON-safe implementation metadata used
+#'   to pin generated adapters whose closures capture family or probe specs.
 #' @return A validated `capr_adapter` object.
 #' @export
 cap_new_adapter <- function(id, version, provider, provider_version, source_family,
                             maturity, semantic_level, conformance_claim = "none",
                             capabilities = list(), source_ref, field_catalog,
-                            fingerprint, bindings) {
+                            fingerprint, bindings,
+                            implementation_spec = list()) {
   if (!is.character(maturity) || length(maturity) != 1L ||
       is.na(maturity) || !maturity %in% .capr_maturities) {
     capr_abort(
@@ -88,7 +219,7 @@ cap_new_adapter <- function(id, version, provider, provider_version, source_fami
     )
   }
   metadata <- list(
-    schema = "capr.adapter.v1",
+    schema = capr_schema("adapter"),
     id = capr_assert_scalar_character(id, "id"),
     version = capr_semver(version, "version"),
     provider = capr_assert_scalar_character(provider, "provider"),
@@ -137,11 +268,20 @@ cap_new_adapter <- function(id, version, provider, provider_version, source_fami
       field = "lifecycle"
     )
   }
+  if (!is.list(implementation_spec)) {
+    capr_abort(
+      "capr_adapter_invalid",
+      "`implementation_spec` must be a JSON-safe list",
+      field = "implementation_spec"
+    )
+  }
+  capr_assert_implementation_spec(implementation_spec)
   adapter <- structure(
     list(
       metadata = metadata,
       lifecycle = lifecycle,
-      bindings = capr_validate_bindings(bindings)
+      bindings = capr_validate_bindings(bindings),
+      implementation_spec = implementation_spec
     ),
     class = "capr_adapter"
   )
@@ -171,7 +311,7 @@ cap_validate_adapter <- function(adapter) {
       missing = missing
     )
   }
-  if (!identical(adapter$metadata$schema, "capr.adapter.v1")) {
+  if (!identical(adapter$metadata$schema, capr_schema("adapter"))) {
     capr_abort(
       "capr_adapter_invalid",
       "unsupported adapter schema",
@@ -186,6 +326,14 @@ cap_validate_adapter <- function(adapter) {
       "adapter lifecycle functions are invalid"
     )
   }
+  if (!is.null(adapter$implementation_spec) &&
+      !is.list(adapter$implementation_spec)) {
+    capr_abort(
+      "capr_adapter_invalid",
+      "adapter implementation spec must be a JSON-safe list"
+    )
+  }
+  capr_assert_implementation_spec(adapter$implementation_spec %||% list())
   capr_validate_bindings(adapter$bindings)
   invisible(adapter)
 }
@@ -220,14 +368,21 @@ capr_adapter_metadata <- function(adapter) {
 
 capr_binding_signature <- function(adapter) {
   cap_validate_adapter(adapter)
-  signatures <- lapply(adapter$bindings, function(kind) {
+  binding_signatures <- lapply(adapter$bindings, function(kind) {
     lapply(kind, function(binding) {
-      list(
-        formals = paste(deparse(formals(binding), width.cutoff = 500L), collapse = "\n"),
-        body = paste(deparse(body(binding), width.cutoff = 500L), collapse = "\n")
-      )
+      capr_function_source_signature(binding)
     })
   })
+  lifecycle_signatures <- lapply(
+    adapter$lifecycle, capr_function_source_signature
+  )
+  signatures <- list(
+    lifecycle = lifecycle_signatures,
+    bindings = binding_signatures,
+    implementation_spec = capr_implementation_spec_signature(
+      adapter$implementation_spec %||% list()
+    )
+  )
   capr_sha256(capr_canonical_json(signatures))
 }
 

@@ -1,7 +1,7 @@
 Package: capR
 Type: Package
 Title: R-Hosted CAP-Digest Runtime
-Version: 1.0.1.9000
+Version: 1.1.0.9000
 Authors@R: person("Yihui", "Xia", email = "xiayh0107@users.noreply.github.com", role = c("aut", "cre"))
 Description: Builds deterministic, policy-bounded CAP-Digest artifacts from R
     objects through an open adapter runtime. The initial stable conformance
@@ -12,18 +12,57 @@ BugReports: https://github.com/xiayh0107/capR/issues
 Depends: R (>= 4.1.0)
 Imports:
     digest,
-    jsonlite
+    jsonlite,
+    methods
 Suggests:
+    aisdk,
+    ape,
+    arrow,
     callr,
     data.table,
+    DBI,
+    dbplyr,
+    DelayedArray,
+    dm,
+    dplyr,
+    GenomicRanges,
+    ggplot2,
+    gtable,
+    HDF5Array,
+    htmlwidgets,
+    igraph,
+    IRanges,
     jsonvalidate,
     knitr,
+    lme4,
+    Matrix,
+    MultiAssayExperiment,
+    parsnip,
+    patchwork,
+    phyloseq,
+    R6,
+    recipes,
     rmarkdown,
+    RSQLite,
+    S4Vectors,
+    SeuratObject,
+    sf,
+    SingleCellExperiment,
+    stars,
+    SummarizedExperiment,
     testthat (>= 3.0.0),
     tibble,
-    withr
+    tidygraph,
+    tidyr,
+    treeio,
+    tsibble,
+    withr,
+    workflows,
+    xml2,
+    xts,
+    zoo
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.0.0

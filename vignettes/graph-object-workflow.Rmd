@@ -1,0 +1,182 @@
+---
+title: "capR 情景化复杂对象：Graph"
+subtitle: "网络审查先看规模与属性 schema，不把边端点和标签交出去"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Graph}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+graph_available <- requireNamespace("igraph", quietly = TRUE)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：医院转诊网络的审查人只需要“规模”
+
+转诊网络包含患者、科室和边属性。第一轮审查要确认网络是否有向、节点和边的数量
+是否符合预期，以及是否存在某类属性；它不应披露真实节点标签、边端点或属性值。把
+网络转成 edge list 会把最敏感的关系直接暴露出来。
+
+## 构造一个带敏感标签的 ring
+
+```{r create-graph}
+if (graph_available) {
+  referral_network <- igraph::make_ring(5, directed = TRUE)
+  referral_network <- igraph::set_vertex_attr(
+    referral_network, "patient_label",
+    value = paste0("PATIENT_SECRET_", seq_len(5))
+  )
+  data.frame(
+    vertices = igraph::vcount(referral_network),
+    edges = igraph::ecount(referral_network),
+    directed = igraph::is_directed(referral_network)
+  )
+} else {
+  data.frame(status = "igraph is not installed; the executable example is skipped")
+}
+```
+
+## 只生成图结构证据
+
+```{r graph-digest}
+if (graph_available) {
+  graph_digest <- assert_descriptor(
+    cap_digest(referral_network, adapter = cap_graph_adapter(), budget = 800,
+               label = "referral network review"),
+    "graph"
+  )
+  stopifnot(
+    !grepl("PATIENT_SECRET_1", graph_digest$text, fixed = TRUE),
+    grepl('"vertices": 5', graph_digest$text, fixed = TRUE),
+    grepl("payload", graph_digest$text, ignore.case = TRUE)
+  )
+  data.frame(
+    evidence = c("vertex/edge count", "directedness", "attribute names", "edge endpoints", "labels/values"),
+    included = c(TRUE, TRUE, TRUE, FALSE, FALSE)
+  )
+} else {
+  data.frame(status = "Install igraph to render the graph scenario")
+}
+```
+
+注意“知道五个节点、五条边”不等于知道谁和谁相连。需要做中心性、路径或社区分析
+时，必须另设关系数据的授权和披露边界；`cap_graph_adapter()` 不会执行图算法，也不
+会把 endpoint 向量写进 artifact。
+
+## 连续 Agent 会话：网络审查不是把 edge list 交给模型
+
+图分析 agent 往往会先问网络规模，再问“哪条边连接谁”。第二个问题属于 payload
+关系，不应因为 agent 连续对话就自动放行。这里用 capR 的 validation 和 Gate 把这条
+边界显式记录下来。
+
+```{r graph-agent-session}
+if (graph_available) {
+  agent_digest_0 <- cap_digest(
+    referral_network,
+    question = "先判断网络规模和 directedness，不披露节点标签或端点。",
+    adapter = cap_graph_adapter(), budget = 150, policy = agent_policy,
+    label = "agent turn 0: graph overview"
+  )
+  stopifnot(identical(selected_field_ids(agent_digest_0),
+                      "f1:graph@overview#compact"))
+
+  agent_response_1 <- list(
+    claims = list(list(
+      id = "network-size",
+      text = "这是一个有向网络；需要属性 schema 才能决定可用的审查规则。",
+      evidence = list("f1:graph@overview#compact")
+    )),
+    evidence = list(), warnings = list(),
+    requests = list(list(
+      fieldId = "f1:graph@structure#compact", level = 1L, budget = 240L,
+      reason = "请提供属性名称和组件 schema，但不要给 endpoint。"
+    ))
+  )
+  turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+  stopifnot(turn_1$validation$ok,
+            identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+
+  agent_digest_2 <- cap_digest(
+    referral_network,
+    question = "用户批准有界属性 schema，不批准 edge endpoint 或 label。",
+    adapter = cap_graph_adapter(), budget = 800, policy = agent_policy,
+    label = "agent turn 2: graph schema"
+  )
+  agent_response_2 <- list(
+    claims = list(list(
+      id = "graph-boundary",
+      text = "可以按 directedness 和属性 schema 选择审查器；拓扑本身仍未披露。",
+      evidence = list("f1:graph@structure#compact",
+                      "f1:graph@semantics#compact")
+    )),
+    evidence = list(), warnings = list(), requests = list()
+  )
+  turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+  stopifnot(turn_2$validation$ok,
+            identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+  data.frame(
+    speaker = c("agent", "capR Gate", "user/host", "agent"),
+    action = c("ask for topology", "deny implicit endpoint request", "approve schema only", "select review rule"),
+    endpoints_read = FALSE
+  )
+} else {
+  data.frame(status = "Install igraph to render the graph agent conversation")
+}
+```
+
+如果下一轮真的需要匿名化拓扑，应由宿主生成一个新的、可审计的 edge artifact；
+agent 不能利用已知的 vertex/edge count 推断真实关系。
+
+## 情景决策
+
+| 现场问题 | 选择 |
+| --- | --- |
+| 先审查网络规模和 schema | `cap_graph_adapter()` |
+| 需要展示匿名化拓扑 | 另建脱敏 edge-list/graph artifact |
+| 需要运行中心性或路径算法 | 在受控本地环境执行，不把方法调用塞进 descriptor |
+| 是树和 tip 语义 | 同一 adapter 的 `phylo`/`treedata` 路径 |
+
+图与 Scientific assay 的对齐语义不同；选择地图见[复杂对象全景](complex-object-workflow.Rmd)。

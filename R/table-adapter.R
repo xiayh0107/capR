@@ -29,8 +29,7 @@ capr_table_uri <- function(x, context = list()) {
 }
 
 capr_table_fingerprint <- function(x, context = list()) {
-  override <- context$fingerprint %||%
-    attr(x, "capr_fixture_fingerprint", exact = TRUE)
+  override <- context$fingerprint
   if (!is.null(override)) {
     return(list(
       available = TRUE,
@@ -289,7 +288,7 @@ capr_table_render_sample <- function(value, field = NULL, context = list()) {
 capr_table_field_catalog <- function(x, context = list()) {
   fields <- list(
     list(
-      schema = "cap.field.v1",
+      schema = capr_schema("field"),
       id = "f1:table@shape#base",
       label = "Shape",
       description = "Row and column count for a tabular source.",
@@ -313,7 +312,7 @@ capr_table_field_catalog <- function(x, context = list()) {
       ))
     ),
     list(
-      schema = "cap.field.v1",
+      schema = capr_schema("field"),
       id = "f1:table@columns#compact",
       label = "Columns",
       description = "Compact column names, types, and masked examples.",
@@ -337,7 +336,7 @@ capr_table_field_catalog <- function(x, context = list()) {
       ))
     ),
     list(
-      schema = "cap.field.v1",
+      schema = capr_schema("field"),
       id = "f1:table@sample#k10",
       label = "Sample rows",
       description = "Up to ten deterministic sample rows.",
@@ -362,21 +361,17 @@ capr_table_field_catalog <- function(x, context = list()) {
     )
   )
   list(
-    schema = "cap.field_catalog.v1",
+    schema = capr_schema("field_catalog"),
     catalogId = "org.capr.table.v1",
     sourceType = "table",
-    versions = list(
-      cap = "2026-07-05-draft",
-      fields = "f1",
-      catalog = "v1"
-    ),
+    versions = capr_catalog_versions(),
     fields = fields
   )
 }
 
 capr_table_source_ref <- function(x, context = list()) {
   list(
-    schema = "cap.source_ref.v1",
+    schema = capr_schema("source_ref"),
     uri = capr_table_uri(x, context),
     sourceType = "table",
     label = capr_table_label(x, context),

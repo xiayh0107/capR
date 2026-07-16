@@ -59,7 +59,7 @@ cap_verify_vendor <- function(root = capr_vendor_root()) {
       parent = e
     )
   )
-  if (!identical(lock$schema, "capr.vendor_lock.v1") ||
+  if (!identical(lock$schema, capr_schema("vendor_lock")) ||
       !is.list(lock$files)) {
     capr_abort(
       "capr_artifact_invalid",
@@ -118,7 +118,7 @@ cap_verify_vendor <- function(root = capr_vendor_root()) {
   }
   structure(
     list(
-      schema = "capr.vendor_verification.v1",
+      schema = capr_schema("vendor_verification"),
       ok = TRUE,
       tag = lock$upstream$tag,
       commit = lock$upstream$commit,

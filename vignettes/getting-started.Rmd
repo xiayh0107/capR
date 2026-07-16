@@ -11,8 +11,15 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-capR produces bounded CAP-Digest evidence from a table without a model
-provider, credentials, remote service, or network access.
+In the next five minutes you will compile a data frame into a *digest* —
+the bounded evidence pack a model is allowed to read — then learn to read
+one yourself, and mechanically check a model-style answer against it.
+capR never contacts a model; every code block here runs offline.
+
+## The setup
+
+Here is a table you would never paste into a prompt: it contains live
+API tokens.
 
 ```{r}
 library(capR)
@@ -23,22 +30,103 @@ orders <- data.frame(
   api_token = c("sk_test_123", "sk_test_456"),
   check.names = FALSE
 )
+```
+
+## Compile it into a digest
+
+```{r}
 digest <- cap_digest(orders, budget = 500, label = "orders")
 print(digest)
+```
+
+The print method already tells the story: some fields were selected, some
+were not, and disclosure was metered against your budget. Now look at the
+exact text a model would receive:
+
+```{r}
 cat(digest$text)
 ```
 
-`api_token` values are masked before the columns renderer receives them.
-The sample field remains available only through validated and gated follow-up.
+## How to read a digest
+
+Four things to notice, top to bottom:
+
+1. **The header line** states the format, the source fingerprint, the
+   tokenizer used for cost accounting, and `budget=used/requested` — the
+   meter, up front.
+2. **`<field>` blocks are the only facts.** Each has a stable, citable id
+   such as `f1:table@shape#base`. Anything a model later claims must cite
+   these ids.
+3. **The secrets are already gone.** The `api_token` column is *named* in
+   the column summary, but its values were masked by the redactor before
+   the renderer ever saw them:
 
 ```{r}
-selected <- vapply(
+stopifnot(!grepl("sk_test_123", digest$text, fixed = TRUE))
+```
+
+4. **`<available_on_request>` is the honest boundary.** Sample rows exist
+   but were not disclosed; the line advertises their id, execution class,
+   and estimated cost. A model may *ask* for them — it cannot take them.
+
+The machine-readable twin of the text is the manifest, which records every
+field considered, selected or rejected, and why:
+
+```{r}
+vapply(
   Filter(function(row) row$selected, digest$manifest$fields),
   `[[`, character(1), "fieldId"
 )
-selected
-stopifnot(
-  "f1:table@shape#base" %in% selected,
-  !grepl("sk_test_123", digest$text, fixed = TRUE)
-)
 ```
+
+## Check an answer instead of trusting it
+
+Suppose the model replies with a claim and a citation. Validation is a
+mechanical cross-check against the manifest and the digest text — not a
+judgment call:
+
+```{r}
+good <- cap_validate_response(digest, list(
+  claims = list(list(
+    id = "claim-1",
+    text = "The table has two rows and three columns.",
+    evidence = list("f1:table@shape#base")
+  )),
+  evidence = list(),
+  warnings = list(),
+  requests = list()
+))
+stopifnot(good$ok)
+```
+
+Now the same claim citing a field that was never disclosed:
+
+```{r}
+bad <- cap_validate_response(digest, list(
+  claims = list(list(
+    id = "claim-1",
+    text = "The third sample row shows a refund.",
+    evidence = list("f1:table@sample#k10")
+  )),
+  evidence = list(),
+  warnings = list(),
+  requests = list()
+))
+bad$ok
+bad$errors[[1L]]$code
+```
+
+`evidence_rejected_field`: the field exists in the manifest but was never
+selected into the digest, so citing it is invalid. Hallucinated citations
+fail the same way, deterministically.
+
+## Where to go next
+
+- **Follow-up disclosure** — when the model *requests* the sample field,
+  `cap_gate()` decides under your policy and budget, and only approvals
+  become patches: `vignette("response-followup")`.
+- **Let a model drive the whole loop** with an audit transcript:
+  `vignette("agentic-workflow")`.
+- **The full story in Chinese**, from policy to artifacts on disk:
+  `vignette("quickstart")`.
+- **The mental model in one page**: [Concepts](https://github.com/xiayh0107/capR/blob/main/docs/concepts.md).

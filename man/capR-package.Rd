@@ -10,6 +10,34 @@ capR resolves an R object to one adapter and then runs a deterministic,
 policy-bounded digest pipeline. Adapter compatibility is distinct from CAP
 conformance; the latter is always versioned and fixture-scoped.
 }
+\section{Package options}{
+
+Options configure default magnitudes only -- never permissions, strategy
+substitution, or redaction. Precedence is always: explicit argument, then
+option, then built-in default. \code{cap_run_fixtures()} clears every capr.*
+option for the duration of its checks, so conformance evidence is
+hermetic.
+
+\describe{
+\item{\code{capr.default_budget}}{Default \code{budget} for \code{\link[=cap_digest]{cap_digest()}}
+(built-in \code{800L}).}
+\item{\code{capr.max_budget}}{Default \code{max_budget} for \code{\link[=cap_policy]{cap_policy()}}
+(built-in \code{800L}).}
+\item{\code{capr.max_followup_budget}}{Default \code{max_followup_budget} for
+\code{\link[=cap_policy]{cap_policy()}} (built-in \code{300L}).}
+\item{\code{capr.max_field_seconds}}{Default \code{max_field_seconds} for
+\code{\link[=cap_policy]{cap_policy()}} (built-in \code{5}).}
+\item{\code{capr.extra_high_risk_classes}}{Extra class names the structural
+fallback refuses to traverse. Append-only: built-in refusals can
+never be removed.}
+}
+
+Deliberately not configurable via options: every \verb{allow_*} permission,
+\code{require_fingerprint_match}, planner/tokenizer selection (visible at the
+call site only), and \code{sensitive_name_patterns} (per-call context only, so
+a global option can never silently narrow redaction).
+}
+
 \seealso{
 Useful links:
 \itemize{

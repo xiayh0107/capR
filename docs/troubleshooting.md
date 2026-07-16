@@ -7,6 +7,19 @@ Fallback is disabled by default. Inspect `class(x)`,
 `cap_list_adapters()`, and `cap_resolution_diagnostics()`; do not enable
 fallback when domain semantics are required.
 
+For a ggplot specification, opt in with
+`adapter = cap_ggplot_adapter()` or register that factory for class `ggplot`.
+For grouping-aware tibble evidence, pass
+`adapter = cap_grouped_table_adapter()` explicitly; a registered
+`grouped_df` adapter cannot override the inherited `tbl_df` S3 bridge in the
+current resolution order.
+
+For nested, array, relational, temporal, spatial, graph, scientific, model,
+visual, or lazy/live semantics, pass the matching experimental constructor
+explicitly (or add a deliberate registry entry). Environment/R6/Arrow frames
+are intentionally opaque, and `stars_proxy` requires a separate remote policy
+rather than this metadata-only path.
+
 ## Adapter ambiguity or pin mismatch
 
 Equal effective registry matches fail with `capr_adapter_ambiguous`. Remove

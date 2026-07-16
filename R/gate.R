@@ -1,8 +1,31 @@
-capr_gate_problem <- function(code, message, field_id,
-                              retryable = FALSE) {
+# Canonical gate problem codes with their message strings. The codes are
+# canonical data compared by fixtures and the independent interop harness;
+# the English messages are embedded in canonical gate.json artifacts, so any
+# localization must happen in print methods, never here.
+.capr_gate_messages <- c(
+  invalid_evidence = "Response evidence did not pass validation.",
+  followup_disabled = "Follow-up is disabled by host policy.",
+  gate_stale_source = "Source fingerprint changed.",
+  adapter_pin_mismatch = "Pinned adapter is unavailable or incompatible.",
+  unknown_field = "Requested field is unknown.",
+  already_selected = "Requested field is already selected.",
+  not_requestable = "Field is not available through follow-up.",
+  unknown_level = "Requested field level is unavailable.",
+  exec_not_allowed = "Execution class is denied by host policy.",
+  budget_exceeded = "Requested field exceeds the remaining follow-up budget."
+)
+
+capr_gate_problem <- function(code, field_id, retryable = FALSE) {
+  if (!code %in% names(.capr_gate_messages)) {
+    capr_abort(
+      "capr_artifact_invalid",
+      "unknown gate problem code",
+      code = code
+    )
+  }
   list(
     code = code,
-    message = message,
+    message = unname(.capr_gate_messages[[code]]),
     fieldId = field_id,
     retryable = retryable
   )
@@ -71,59 +94,28 @@ cap_gate <- function(digest, validation, policy = cap_policy(),
     approved_budget <- NULL
     problems <- list()
     if (!isTRUE(validation$ok)) {
-      problems <- list(capr_gate_problem(
-        "invalid_evidence",
-        "Response evidence did not pass validation.",
-        field_id
-      ))
+      problems <- list(capr_gate_problem("invalid_evidence", field_id))
     } else if (!policy$allow_followup) {
-      problems <- list(capr_gate_problem(
-        "followup_disabled",
-        "Follow-up is disabled by host policy.",
-        field_id
-      ))
+      problems <- list(capr_gate_problem("followup_disabled", field_id))
     } else if (stale) {
       decision <- "stale_source"
-      problems <- list(capr_gate_problem(
-        "gate_stale_source",
-        "Source fingerprint changed.",
-        field_id,
-        retryable = TRUE
-      ))
+      problems <- list(
+        capr_gate_problem("gate_stale_source", field_id, retryable = TRUE)
+      )
     } else if (pin_problem) {
-      problems <- list(capr_gate_problem(
-        "adapter_pin_mismatch",
-        "Pinned adapter is unavailable or incompatible.",
-        field_id
-      ))
+      problems <- list(capr_gate_problem("adapter_pin_mismatch", field_id))
     } else if (is.null(row)) {
       decision <- "unknown_field"
-      problems <- list(capr_gate_problem(
-        "unknown_field",
-        "Requested field is unknown.",
-        field_id
-      ))
+      problems <- list(capr_gate_problem("unknown_field", field_id))
     } else if (isTRUE(row$selected)) {
-      problems <- list(capr_gate_problem(
-        "already_selected",
-        "Requested field is already selected.",
-        field_id
-      ))
+      problems <- list(capr_gate_problem("already_selected", field_id))
     } else if (!identical(row$timing, "interactive")) {
       decision <- "not_available"
-      problems <- list(capr_gate_problem(
-        "not_requestable",
-        "Field is not available through follow-up.",
-        field_id
-      ))
+      problems <- list(capr_gate_problem("not_requestable", field_id))
     } else if (!is.null(request$level) &&
                !identical(as.integer(request$level), as.integer(row$level))) {
       decision <- "unknown_level"
-      problems <- list(capr_gate_problem(
-        "unknown_level",
-        "Requested field level is unavailable.",
-        field_id
-      ))
+      problems <- list(capr_gate_problem("unknown_level", field_id))
     } else {
       authorization <- cap_authorize_execution(policy, row$exec)
       requested_budget <- request$budget %||% row$estimatedCost
@@ -134,18 +126,10 @@ cap_gate <- function(digest, validation, policy = cap_policy(),
       )
       if (!authorization$allowed) {
         decision <- "exec_not_allowed"
-        problems <- list(capr_gate_problem(
-          "exec_not_allowed",
-          "Execution class is denied by host policy.",
-          field_id
-        ))
+        problems <- list(capr_gate_problem("exec_not_allowed", field_id))
       } else if (requested_budget > remaining) {
         decision <- "over_budget"
-        problems <- list(capr_gate_problem(
-          "budget_exceeded",
-          "Requested field exceeds the remaining follow-up budget.",
-          field_id
-        ))
+        problems <- list(capr_gate_problem("budget_exceeded", field_id))
       } else {
         decision <- "approved"
         approved_level <- request$level %||% row$level
@@ -178,7 +162,7 @@ cap_gate <- function(digest, validation, policy = cap_policy(),
   }
   structure(
     list(
-      schema = "cap.gate_result.v1",
+      schema = capr_schema("gate_result"),
       digestId = digest$manifest$digestId,
       fingerprint = digest$fingerprint,
       overallDecision = overall,

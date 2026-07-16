@@ -2,7 +2,8 @@ test_that("response validation matches positive basic-table fixture", {
   digest <- cap_digest(
     fixture_table("basic-table"),
     budget = 500,
-    policy = cap_policy(max_budget = 500)
+    policy = cap_policy(max_budget = 500),
+    fingerprint = fixture_fingerprint("basic-table")
   )
   fixture <- read_fixture_json(
     "basic-table", "expected-validation.json"
@@ -26,7 +27,8 @@ test_that("negative validation fixtures produce exact findings", {
   digest <- cap_digest(
     fixture_table("basic-table"),
     budget = 500,
-    policy = cap_policy(max_budget = 500)
+    policy = cap_policy(max_budget = 500),
+    fingerprint = fixture_fingerprint("basic-table")
   )
   negative <- read_fixture_json(
     "basic-table", "negative-validation.json"
@@ -77,7 +79,8 @@ test_that("gate is pure and approves fixture follow-up", {
   digest <- cap_digest(
     table,
     budget = 500,
-    policy = cap_policy(max_budget = 500)
+    policy = cap_policy(max_budget = 500),
+    fingerprint = fixture_fingerprint("followup-basic")
   )
   request <- read_fixture_json(
     "followup-basic", "request-approved.json"
@@ -116,7 +119,8 @@ test_that("stale fingerprints and invalid evidence deny follow-up", {
   digest <- cap_digest(
     fixture_table("followup-basic"),
     budget = 500,
-    policy = cap_policy(max_budget = 500)
+    policy = cap_policy(max_budget = 500),
+    fingerprint = fixture_fingerprint("followup-basic")
   )
   request <- read_fixture_json(
     "followup-basic", "request-approved.json"
@@ -153,7 +157,8 @@ test_that("approved patch matches fixture and applies once", {
   digest <- cap_digest(
     table,
     budget = 500,
-    policy = cap_policy(max_budget = 500)
+    policy = cap_policy(max_budget = 500),
+    fingerprint = fixture_fingerprint("followup-basic")
   )
   validation <- cap_validate_response(
     digest,
@@ -174,7 +179,8 @@ test_that("approved patch matches fixture and applies once", {
     policy = cap_policy(
       max_budget = 500,
       max_followup_budget = 340
-    )
+    ),
+    fingerprint = fixture_fingerprint("followup-basic")
   )
   expect_identical(
     capr_canonical_json(unclass(patch)),
@@ -202,22 +208,30 @@ test_that("approved patch matches fixture and applies once", {
 
 test_that("patch rechecks adapter pin and source fingerprint", {
   table <- fixture_table("followup-basic")
-  digest <- cap_digest(table, budget = 500)
+  digest <- cap_digest(
+    table,
+    budget = 500,
+    fingerprint = fixture_fingerprint("followup-basic")
+  )
   validation <- cap_validate_response(
     digest,
     read_fixture_json("followup-basic", "request-approved.json")
   )
   gate <- cap_gate(digest, validation)
-  changed <- table
-  attr(changed, "capr_fixture_fingerprint") <- "changed"
   expect_error(
-    cap_patch(digest, gate, changed),
+    cap_patch(digest, gate, table, fingerprint = "changed"),
     class = "capr_adapter_pin_mismatch"
   )
   drifted <- cap_table_adapter()
   drifted$metadata$provider_version <- "2.0.0"
   expect_error(
-    cap_patch(digest, gate, table, adapter = drifted),
+    cap_patch(
+      digest,
+      gate,
+      table,
+      adapter = drifted,
+      fingerprint = fixture_fingerprint("followup-basic")
+    ),
     class = "capr_adapter_pin_mismatch"
   )
 })

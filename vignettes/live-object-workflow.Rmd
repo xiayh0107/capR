@@ -1,0 +1,181 @@
+---
+title: "capR 情景化复杂对象：Live"
+subtitle: "生产连接和引用对象保持 opaque，不查询、不读凭据、不触发 active binding"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Live}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：生产 lazy table 不能因为审查而执行 SQL
+
+生产对象常常只是远程表、DBI connection、Arrow Dataset、R6 service 或 external pointer
+的代理。审查人想确认“对象确实是一个 live/external host”，却不希望审查动作打开连接、
+发送 query、collect 行，或读取环境中的 API token。
+
+## 用 environment 模拟一个带 active binding 的服务代理
+
+```{r create-live-object}
+active_binding_calls <- 0L
+service_proxy <- new.env(parent = emptyenv())
+service_proxy$api_token <- "LIVE_SECRET_NOT_DISCLOSED"
+makeActiveBinding("dangerous_query", function(value) {
+  active_binding_calls <<- active_binding_calls + 1L
+  stop("active binding must not run during metadata inspection")
+}, service_proxy)
+
+data.frame(
+  object_kind = "opaque environment",
+  credential_present = TRUE,
+  dangerous_binding_present = TRUE
+)
+```
+
+## 生成 opaque 证据
+
+```{r live-digest}
+live_digest <- assert_descriptor(
+  cap_digest(service_proxy, adapter = cap_live_adapter(), budget = 800,
+             label = "production service proxy"),
+  "external"
+)
+
+stopifnot(
+  identical(active_binding_calls, 0L),
+  !grepl("api_token", live_digest$text, fixed = TRUE),
+  !grepl("dangerous_query", live_digest$text, fixed = TRUE),
+  !grepl("LIVE_SECRET_NOT_DISCLOSED", live_digest$text, fixed = TRUE),
+  grepl('"binding_names_enumerated": false', live_digest$text, fixed = TRUE),
+  grepl('"active_bindings_evaluated": false', live_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  check = c("query rendered", "rows collected", "credentials read", "active binding called"),
+  result = c(FALSE, FALSE, FALSE, FALSE)
+)
+```
+
+environment、R6 和 Arrow frame 连 binding name 都保持 opaque；lazy query 只看 cached
+component class；connection 只看有界 slot/attribute metadata。这个 adapter 不能告诉
+你远程数据库当前有多少行，也不能保证连接仍然有效，它只保证 capR 的这次描述没有
+越过 live-object 边界。
+
+## 连续 Agent 会话：远程对象的每一步都要重新过 Gate
+
+live agent 的典型对话是：“这是哪个代理？”→“能否执行 query？”→“那我只需要一个
+安全的对象状态说明”。下面让 active binding 留在环境里，观察 capR 如何在多轮对话中
+保持它不被触发。
+
+```{r live-agent-session}
+agent_digest_0 <- cap_digest(
+  service_proxy,
+  question = "先确认这是一个 live/external proxy，不读取 binding。",
+  adapter = cap_live_adapter(), budget = 150, policy = agent_policy,
+  label = "agent turn 0: live overview"
+)
+stopifnot(identical(selected_field_ids(agent_digest_0),
+                    "f1:external@overview#compact"))
+
+agent_response_1 <- list(
+  claims = list(list(
+    id = "proxy-kind",
+    text = "这是一个 opaque live object；需要 connection/query 状态才能决定下一步。",
+    evidence = list("f1:external@overview#compact")
+  )),
+  evidence = list(), warnings = list(),
+  requests = list(list(
+    fieldId = "f1:external@structure#compact", level = 1L, budget = 240L,
+    reason = "请读取 connection/query 组件，但不要执行 query 或 active binding。"
+  ))
+)
+turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+stopifnot(turn_1$validation$ok,
+          identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+
+agent_digest_2 <- cap_digest(
+  service_proxy,
+  question = "用户批准 opaque 状态 metadata，但不批准 query、凭据或 binding。",
+  adapter = cap_live_adapter(), budget = 800, policy = agent_policy,
+  label = "agent turn 2: live boundary"
+)
+agent_response_2 <- list(
+  claims = list(list(
+    id = "live-safety",
+    text = "可以记录对象保持 opaque；没有 query、collect、凭据读取或 active binding。",
+    evidence = list("f1:external@structure#compact",
+                    "f1:external@semantics#compact")
+  )),
+  evidence = list(), warnings = list(), requests = list()
+)
+turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+stopifnot(turn_2$validation$ok,
+          identical(active_binding_calls, 0L),
+          identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+data.frame(
+  turn = c(0L, 1L, 2L),
+  agent_action = c("identify proxy", "ask for query state", "continue with opaque status"),
+  capR_decision = c("overview", "not_available", "metadata only"),
+  active_binding_calls = active_binding_calls
+)
+```
+
+如果用户真的批准 remote query，应该切换到另一个明确声明 `remote_query` 能力的
+流程；当前 live adapter 的职责就是让 agent 可以继续说话，同时让外部状态保持不可达。
+
+## 情景决策
+
+| 现场问题 | 选择 |
+| --- | --- |
+| 审查对象是 live/remote proxy | `cap_live_adapter()` |
+| 需要 SQL 或行值 | 显式授权 query/collect 流程 |
+| 需要验证凭据是否有效 | 不要把凭据交给 metadata-only Digest |
+| 需要查看 environment binding | 先做本地、受控的人工审查 |
+
+Array 的 file-backed 状态与 Live 的远程/引用语义可能重叠；以你要保留的主导语义为准，
+再显式选择 adapter。总览见[复杂对象全景](complex-object-workflow.Rmd)。

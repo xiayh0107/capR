@@ -1,0 +1,188 @@
+---
+title: "capR 情景化复杂对象：Scientific"
+subtitle: "单细胞实验交接时保留 assay 对齐，不分享 cell 和 feature 值"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Scientific}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+scientific_available <- requireNamespace("SummarizedExperiment", quietly = TRUE)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：把 assay 交给下一个分析人，但不能把身份交出去
+
+单细胞项目通常同时保存 assay、feature metadata、sample metadata 和额外组件。下一个
+分析人需要知道 counts 有几行几列、有哪些 assay/layer，以及 metadata schema 是否存在；
+他不需要在第一轮看到 cell barcode、feature ID 或 count 值。若把它们拼成一张普通表，
+行列对齐这个不变量就很难审计。
+
+## 构造一个最小 `SummarizedExperiment`
+
+```{r create-scientific-object}
+if (scientific_available) {
+  counts <- matrix(
+    c(11, 12, 13, 14), nrow = 2,
+    dimnames = list(
+      c("FEATURE_SECRET_A", "FEATURE_SECRET_B"),
+      c("CELL_SECRET_A", "CELL_SECRET_B")
+    )
+  )
+  single_cell_experiment <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = counts)
+  )
+  data.frame(assays = 1L, rows = nrow(counts), columns = ncol(counts))
+} else {
+  data.frame(status = "SummarizedExperiment is not installed; the executable example is skipped")
+}
+```
+
+## 记录对齐和 schema，不记录 payload
+
+```{r scientific-digest}
+if (scientific_available) {
+  scientific_digest <- assert_descriptor(
+    cap_digest(single_cell_experiment, adapter = cap_scientific_adapter(), budget = 900,
+               label = "single-cell assay handoff"),
+    "scientific"
+  )
+  stopifnot(
+    !grepl("FEATURE_SECRET_A", scientific_digest$text, fixed = TRUE),
+    !grepl("CELL_SECRET_A", scientific_digest$text, fixed = TRUE),
+    grepl('"payload"', scientific_digest$text, fixed = TRUE),
+    grepl('"dimensions": [', scientific_digest$text, fixed = TRUE)
+  )
+  data.frame(
+    evidence = c("assay name", "assay dimensions", "row/column schema", "cell values", "identifiers"),
+    included = c(TRUE, TRUE, TRUE, FALSE, FALSE)
+  )
+} else {
+  data.frame(status = "Install SummarizedExperiment to render the scientific scenario")
+}
+```
+
+同一语义也适用于 `SingleCellExperiment`、Seurat 和 phyloseq；file-backed assay 不会被
+物化。assay 名、slot 名和 metadata 字段名属于 schema metadata，仍应避免把秘密写进
+名称。这里的 Digest 能证明“容器看起来怎样”，不能证明实验设计、统计结果或 assay
+内容正确。
+
+## 连续 Agent 会话：先确认 assay 对齐，再决定是否申请值级分析
+
+单细胞 agent 的第一轮通常只需要回答“有几个 assay、矩阵多大”。它如果继续追问
+feature/cell 值，宿主必须把这个请求留在 contract 层，而不是让 `assay()` 或 `as.matrix()`
+在后台发生。
+
+```{r scientific-agent-session}
+if (scientific_available) {
+  agent_digest_0 <- cap_digest(
+    single_cell_experiment,
+    question = "先判断 assay 数量和矩阵 shape，不披露 feature 或 cell identifier。",
+    adapter = cap_scientific_adapter(), budget = 150, policy = agent_policy,
+    label = "agent turn 0: scientific overview"
+  )
+  stopifnot(identical(selected_field_ids(agent_digest_0),
+                      "f1:scientific@overview#compact"))
+
+  agent_response_1 <- list(
+    claims = list(list(
+      id = "assay-size",
+      text = "这是一个带 assay 对齐关系的 scientific container；需要 schema 才能决定分析入口。",
+      evidence = list("f1:scientific@overview#compact")
+    )),
+    evidence = list(), warnings = list(),
+    requests = list(list(
+      fieldId = "f1:scientific@structure#compact", level = 1L, budget = 240L,
+      reason = "请提供 assay/layer 和 metadata schema，不要给 cell 值。"
+    ))
+  )
+  turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+  stopifnot(turn_1$validation$ok,
+            identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+
+  agent_digest_2 <- cap_digest(
+    single_cell_experiment,
+    question = "用户批准查看 assay schema，但不批准 cell、feature 或 metadata 值。",
+    adapter = cap_scientific_adapter(), budget = 800, policy = agent_policy,
+    label = "agent turn 2: scientific schema"
+  )
+  agent_response_2 <- list(
+    claims = list(list(
+      id = "assay-alignment",
+      text = "可以继续按 assay dimensions 和 metadata schema 选择流程；payload 仍未物化。",
+      evidence = list("f1:scientific@structure#compact",
+                      "f1:scientific@semantics#compact")
+    )),
+    evidence = list(), warnings = list(), requests = list()
+  )
+  turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+  stopifnot(turn_2$validation$ok,
+            identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+  data.frame(
+    turn = c(0L, 1L, 2L),
+    agent_action = c("inspect assay count", "request alignment schema", "choose analysis route"),
+    capR_decision = c("overview", "not_available", "schema selected"),
+    assay_values_materialized = FALSE
+  )
+} else {
+  data.frame(status = "Install SummarizedExperiment to render the scientific agent conversation")
+}
+```
+
+这让“持续交互”变成有边界的对话：agent 可以根据上一轮得到的 field ID 改写问题，
+但不能把未经披露的 cell/feature 值写进下一轮 claim。值级实验分析应在另一个授权的
+artifact 流程中进行。
+
+## 情景决策
+
+| 现场问题 | 选择 |
+| --- | --- |
+| 审核 assay/layer 的数量和对齐 shape | `cap_scientific_adapter()` |
+| 交付 feature/cell 值 | 另建受控 assay artifact，不扩展这个 descriptor |
+| 只需要一张普通 summary 表 | stable table adapter |
+| 需要实验之间的主外键关系 | 同时明确考虑 relational 语义 |
+
+更多例子见[复杂对象全景](complex-object-workflow.Rmd)。

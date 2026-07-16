@@ -5,9 +5,9 @@
 \title{Construct a host policy}
 \usage{
 cap_policy(
-  max_budget = 800L,
-  max_followup_budget = 300L,
-  max_field_seconds = 5,
+  max_budget = getOption("capr.max_budget", 800L),
+  max_followup_budget = getOption("capr.max_followup_budget", 300L),
+  max_field_seconds = getOption("capr.max_field_seconds", 5),
   allow_exec = c("local_cheap", "local_scan"),
   allow_remote = FALSE,
   allow_credentials = FALSE,

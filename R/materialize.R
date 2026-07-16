@@ -74,7 +74,8 @@ capr_failed_outcome <- function(candidate, stage, condition,
 }
 
 capr_materialize_one <- function(candidate, adapter, source, policy,
-                                 context) {
+                                 context, tokenizer = NULL) {
+  tokenizer <- capr_resolve_tokenizer(tokenizer)
   field <- candidate$field
   authorization <- cap_authorize_execution(
     policy, field$exec, adapter$metadata$capabilities
@@ -197,8 +198,8 @@ capr_materialize_one <- function(candidate, adapter, source, policy,
     ))
   }
   rendered <- enc2utf8(rendered)
-  if (nchar(rendered, type = "chars") > 20000L) {
-    rendered <- paste0(substr(rendered, 1L, 20000L), "\n[truncated]")
+  if (nchar(rendered, type = "chars") > .capr_render_char_cap) {
+    rendered <- paste0(substr(rendered, 1L, .capr_render_char_cap), "\n[truncated]")
     redaction$warnings <- c(redaction$warnings, "rendered output truncated")
     redaction$caveats <- c(redaction$caveats, list(list(
       code = "cap_caveat_truncated",
@@ -221,7 +222,7 @@ capr_materialize_one <- function(candidate, adapter, source, policy,
     error_class = NULL,
     condition_class = NULL,
     elapsed_ms = elapsed,
-    actual_cost = capr_actual_cost(field$id, rendered)
+    actual_cost = capr_tokenizer_count(tokenizer, field$id, rendered)
   )
 }
 
@@ -232,16 +233,19 @@ capr_materialize_one <- function(candidate, adapter, source, policy,
 #' @param source Source object.
 #' @param policy Host policy.
 #' @param context Runtime context.
+#' @param tokenizer Optional tokenizer id or `capr_tokenizer`; `NULL` keeps
+#'   the built-in `heuristic_v1` accounting.
 #' @return Structured per-field outcomes.
 #' @keywords internal
 cap_materialize <- function(plan, adapter, source, policy = cap_policy(),
-                            context = list()) {
+                            context = list(), tokenizer = NULL) {
   if (!inherits(plan, "capr_selection_plan")) {
     capr_abort(
       "capr_extraction_error",
       "materialization requires an approved capR selection plan"
     )
   }
+  tokenizer <- capr_resolve_tokenizer(tokenizer)
   cap_validate_adapter(adapter)
   capr_validate_policy(policy)
   selected <- Filter(
@@ -249,14 +253,16 @@ cap_materialize <- function(plan, adapter, source, policy = cap_policy(),
     plan$candidates
   )
   outcomes <- lapply(selected, function(candidate) {
-    capr_materialize_one(candidate, adapter, source, policy, context)
+    capr_materialize_one(
+      candidate, adapter, source, policy, context, tokenizer
+    )
   })
   names(outcomes) <- vapply(
     selected, function(candidate) candidate$field$id, character(1)
   )
   structure(
     list(
-      schema = "capr.materialization.v1",
+      schema = capr_schema("materialization"),
       outcomes = outcomes
     ),
     class = "capr_materialization"

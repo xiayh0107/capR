@@ -1,0 +1,211 @@
+---
+title: "capR 情景化复杂对象：Array"
+subtitle: "单细胞矩阵太大时，先用 shape 和 storage 做计算分流"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Array}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：单细胞团队要决定“内存还是分块”
+
+一个单细胞项目有数万个 feature 和数千个 cell。项目经理并不需要在审计环节看到任何
+count；他需要知道 rank、维度、是否稀疏、是否 delayed/file-backed，从而决定后续作业
+应该走内存、稀疏矩阵还是分块计算。
+
+## 两个内容不同、形状相同的 assay
+
+```{r create-arrays}
+dimnames <- list(
+  c("FEATURE_SECRET_A", "FEATURE_SECRET_B"),
+  c("CELL_SECRET_A", "CELL_SECRET_B", "CELL_SECRET_C")
+)
+
+assay_before_qc <- matrix(1:6, nrow = 2, dimnames = dimnames)
+assay_after_qc <- matrix(as.integer(c(1001, 1002, 1003, 1004, 1005, 1006)),
+                         nrow = 2, dimnames = dimnames)
+
+data.frame(
+  object = c("before_qc", "after_qc"),
+  rank = c(length(dim(assay_before_qc)), length(dim(assay_after_qc))),
+  cells = c(length(assay_before_qc), length(assay_after_qc)),
+  values_are_different = !identical(unname(assay_before_qc), unname(assay_after_qc))
+)
+```
+
+## 只披露 storage contract
+
+```{r array-digests}
+array_before_digest <- assert_descriptor(
+  cap_digest(assay_before_qc, adapter = cap_array_adapter(), budget = 800,
+             label = "single-cell assay before QC"),
+  "array"
+)
+array_after_digest <- assert_descriptor(
+  cap_digest(assay_after_qc, adapter = cap_array_adapter(), budget = 800,
+             label = "single-cell assay after QC"),
+  "array"
+)
+
+stopifnot(
+  identical(array_before_digest$source$uri, array_after_digest$source$uri),
+  !grepl("FEATURE_SECRET_A", array_before_digest$text, fixed = TRUE),
+  !grepl("CELL_SECRET_A", array_before_digest$text, fixed = TRUE),
+  grepl('"payload_values_disclosed": false', array_before_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  check = c("shape disclosed", "dimname values disclosed", "cell values disclosed",
+            "metadata fingerprint changed by cell-only edit"),
+  result = c(TRUE, FALSE, FALSE, FALSE)
+)
+```
+
+相同 URI 是刻意的：这里的 fingerprint 覆盖的是 metadata snapshot，而不是 assay
+content hash。如果后续流程需要验证每个 cell 的内容，必须另建 content-addressed
+artifact 或受控抽样流程；不能把这个 descriptor 当成内容完整性证明。
+
+如果 `Matrix`、`DelayedArray` 或 `HDF5Array` 已安装，同一个 adapter 还可以报告稀疏、
+delayed 和 file-backed 状态；它不会索引 cell、展开 HDF5 文件或执行 delayed operation。
+
+## 连续 Agent 会话：让 agent 先做计算分流，再请求 storage 证据
+
+这里把一次“选择计算后端”的对话放到 capR contract 中。agent 的第一句话只能引用
+overview；它想知道 sparse/delayed 状态时必须提出 request，不能在 R 会话里自行
+`as.matrix()`。
+
+### Turn 0：只给 shape
+
+```{r array-agent-turn-0}
+agent_digest_0 <- cap_digest(
+  assay_before_qc,
+  question = "这个 assay 适合走 dense 还是分块计算？先只看 shape。",
+  adapter = cap_array_adapter(),
+  budget = 150,
+  policy = agent_policy,
+  label = "agent turn 0: array overview"
+)
+stopifnot(identical(selected_field_ids(agent_digest_0),
+                    "f1:array@overview#compact"))
+```
+
+### Turn 1：agent 请求 storage，但 Gate 保持边界
+
+```{r array-agent-turn-1}
+agent_response_1 <- list(
+  claims = list(list(
+    id = "shape",
+    text = "这是一个二维 assay；我还不能判断是否应使用稀疏后端。",
+    evidence = list("f1:array@overview#compact")
+  )),
+  evidence = list(), warnings = list(),
+  requests = list(list(
+    fieldId = "f1:array@structure#compact",
+    level = 1L,
+    budget = 240L,
+    reason = "需要 storage、sparse 和 delayed 标记来选择执行路线。"
+  ))
+)
+turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+stopifnot(turn_1$validation$ok,
+          identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+
+data.frame(
+  turn = 1L,
+  request = "array structure",
+  validation = turn_1$validation$ok,
+  gate_decision = turn_1$gate$requests[[1]]$decision,
+  reason = turn_1$gate$requests[[1]]$problems[[1]]$code
+)
+```
+
+### Turn 2：用户授权新的 bounded snapshot
+
+```{r array-agent-turn-2}
+agent_digest_2 <- cap_digest(
+  assay_before_qc,
+  question = "用户批准查看 storage metadata，但不批准读取任何 cell。",
+  adapter = cap_array_adapter(),
+  budget = 800,
+  policy = agent_policy,
+  label = "agent turn 2: array storage"
+)
+agent_response_2 <- list(
+  claims = list(list(
+    id = "backend",
+    text = "可以根据 sparse/delayed/file-backed 标记选择后端；cell 值仍未读取。",
+    evidence = list("f1:array@structure#compact", "f1:array@semantics#compact")
+  )),
+  evidence = list(), warnings = list(), requests = list()
+)
+turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+stopifnot(turn_2$validation$ok,
+          identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+data.frame(
+  speaker = c("agent", "capR", "user/host", "agent"),
+  message = c("需要 storage metadata", "拒绝隐式 follow-up", "批准新的 bounded Digest", "选择计算后端"),
+  payload_materialized = FALSE
+)
+```
+
+这条链路展示了 capR 的作用：agent 可以连续提问，但每一轮都必须以 field ID 为边界，
+用户批准的是下一轮 metadata，不是“把矩阵交给模型”。需要真正的交互式 Patch 时，
+应使用声明了 interactive field 的专用 adapter；当前 Array adapter 故意保持
+metadata-only。
+
+## 情景决策
+
+| 你要决定什么 | Array Digest 能回答什么 |
+| --- | --- |
+| 是否需要分块计算 | `delayed` / `file_backed` metadata |
+| 是否值得采用稀疏算法 | `sparse` 和 stored-entry count |
+| 轴是否对齐 | rank 与 dimensions，不披露轴名称值 |
+| QC 后 count 是否改变 | 不能，仅 metadata fingerprint 可能不变 |
+
+Array 的边界和 Nested、Scientific 的区别见[复杂对象全景](complex-object-workflow.Rmd)。

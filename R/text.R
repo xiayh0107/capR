@@ -163,7 +163,7 @@ cap_parse_digest_text <- function(text) {
   }
   structure(
     list(
-      schema = "capr.parsed_digest_text.v1",
+      schema = capr_schema("parsed_digest_text"),
       version_line = lines[[1L]],
       source_line = lines[[2L]],
       field_ids = unname(field_ids),
@@ -217,7 +217,7 @@ cap_validate_manifest_text <- function(parsed, manifest) {
 #' @keywords internal
 cap_render_digest_text <- function(source_ref, fingerprint, plan,
                                    materialization,
-                                   tokenizer = "heuristic_v1") {
+                                   tokenizer = .capr_default_tokenizer_id) {
   outcomes <- materialization$outcomes
   used <- sum(vapply(
     Filter(function(outcome) isTRUE(outcome$ok), outcomes),

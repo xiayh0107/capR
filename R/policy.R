@@ -18,8 +18,13 @@
 #' @param allow_followup Whether follow-up is enabled.
 #' @return A normalized `capr_policy`.
 #' @export
-cap_policy <- function(max_budget = 800L, max_followup_budget = 300L,
-                       max_field_seconds = 5,
+cap_policy <- function(max_budget = getOption("capr.max_budget", 800L),
+                       max_followup_budget = getOption(
+                         "capr.max_followup_budget", 300L
+                       ),
+                       max_field_seconds = getOption(
+                         "capr.max_field_seconds", 5
+                       ),
                        allow_exec = c("local_cheap", "local_scan"),
                        allow_remote = FALSE, allow_credentials = FALSE,
                        allow_fallback = FALSE,
@@ -81,7 +86,7 @@ cap_policy <- function(max_budget = 800L, max_followup_budget = 300L,
   }
   structure(
     list(
-      schema = "capr.policy.v1",
+      schema = capr_schema("policy"),
       max_budget = max_budget,
       max_followup_budget = max_followup_budget,
       max_field_seconds = as.numeric(max_field_seconds),
@@ -116,7 +121,7 @@ print.capr_policy <- function(x, ...) {
 
 capr_validate_policy <- function(policy) {
   if (!inherits(policy, "capr_policy") ||
-      !identical(policy$schema, "capr.policy.v1")) {
+      !identical(policy$schema, capr_schema("policy"))) {
     capr_abort("capr_policy_invalid", "invalid capR policy object")
   }
   invisible(policy)

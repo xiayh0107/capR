@@ -11,6 +11,11 @@ data.table -> table (optional dependency)
 ```
 
 These are host representations of one source family, not three CAP source families.
+Plain tibbles use this path directly. `grouped_df` and `rowwise_df` inherit it
+by default, which intentionally treats them as ordinary tables and omits
+grouping metadata. Tasks that need grouping as evidence must explicitly use
+`cap_grouped_table_adapter()`; that adapter is experimental and has no CAP
+conformance claim.
 
 ## Stable field targets
 

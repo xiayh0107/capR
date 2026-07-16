@@ -13,7 +13,7 @@ cap_validate_field_catalog <- function(catalog) {
   required <- c("schema", "catalogId", "sourceType", "versions", "fields")
   if (!is.list(catalog) ||
       length(setdiff(required, names(catalog))) ||
-      !identical(catalog$schema, "cap.field_catalog.v1") ||
+      !identical(catalog$schema, capr_schema("field_catalog")) ||
       !is.list(catalog$fields) || !length(catalog$fields)) {
     capr_abort(
       "capr_adapter_invalid",
@@ -27,7 +27,7 @@ cap_validate_field_catalog <- function(catalog) {
     )
     if (!is.list(field) ||
         length(setdiff(field_required, names(field))) ||
-        !identical(field$schema, "cap.field.v1")) {
+        !identical(field$schema, capr_schema("field"))) {
       capr_abort(
         "capr_adapter_invalid",
         "field catalog contains an invalid cap.field.v1 entry"
@@ -129,11 +129,21 @@ capr_question_adjustment <- function(question, field) {
 #' @param question Optional user intent.
 #' @param policy Host policy.
 #' @param include_interactive Internal switch used only after gate approval.
+#' @param planner Optional planner id or `capr_planner`; `NULL` keeps the
+#'   built-in greedy value/cost strategy byte-identical.
+#' @param tokenizer_id Optional tokenizer id stamped into the plan.
 #' @return A complete selected/rejected plan.
 #' @keywords internal
 cap_select_fields <- function(catalog, budget = 800L, question = NULL,
                               policy = cap_policy(),
-                              include_interactive = FALSE) {
+                              include_interactive = FALSE,
+                              planner = NULL, tokenizer_id = NULL) {
+  planner <- capr_resolve_planner(planner)
+  if (!is.null(tokenizer_id)) {
+    tokenizer_id <- capr_assert_scalar_character(
+      tokenizer_id, "tokenizer_id", condition = "capr_tokenizer_invalid"
+    )
+  }
   cap_validate_field_catalog(catalog)
   capr_validate_policy(policy)
   budget <- capr_assert_count(
@@ -199,18 +209,32 @@ cap_select_fields <- function(catalog, budget = 800L, question = NULL,
 
   eligible_indices <- which(eligible)
   if (length(eligible_indices)) {
-    ordering <- order(
-      -vapply(candidates[eligible_indices], `[[`, numeric(1), "ratio"),
-      -vapply(candidates[eligible_indices], `[[`, numeric(1), "score"),
-      vapply(candidates[eligible_indices], `[[`, integer(1), "estimated_cost"),
-      vapply(
-        candidates[eligible_indices],
-        function(candidate) candidate$field$id,
-        character(1)
-      ),
-      -vapply(candidates[eligible_indices], `[[`, integer(1), "level"),
-      method = "radix"
-    )
+    ordering <- if (is.null(planner$rank)) {
+      order(
+        -vapply(candidates[eligible_indices], `[[`, numeric(1), "ratio"),
+        -vapply(candidates[eligible_indices], `[[`, numeric(1), "score"),
+        vapply(
+          candidates[eligible_indices], `[[`, integer(1), "estimated_cost"
+        ),
+        vapply(
+          candidates[eligible_indices],
+          function(candidate) candidate$field$id,
+          character(1)
+        ),
+        -vapply(candidates[eligible_indices], `[[`, integer(1), "level"),
+        method = "radix"
+      )
+    } else {
+      capr_validate_ranking(
+        planner$rank(
+          capr_planner_views(candidates[eligible_indices]),
+          question,
+          policy
+        ),
+        length(eligible_indices),
+        planner$id
+      )
+    }
     spent <- 0L
     selected_fields <- character()
     for (index in eligible_indices[ordering]) {
@@ -232,12 +256,12 @@ cap_select_fields <- function(catalog, budget = 800L, question = NULL,
 
   structure(
     list(
-      schema = "capr.selection_plan.v1",
+      schema = capr_schema("selection_plan"),
       catalog_id = catalog$catalogId,
       budget_requested = budget,
       budget_estimated_selected = as.integer(spent),
-      planner = "capr-greedy-value-cost-v1",
-      tokenizer = "heuristic_v1",
+      planner = planner$id,
+      tokenizer = tokenizer_id %||% .capr_default_tokenizer_id,
       question = question,
       candidates = candidates
     ),

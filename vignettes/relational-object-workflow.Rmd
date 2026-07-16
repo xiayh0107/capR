@@ -1,0 +1,195 @@
+---
+title: "capR 情景化复杂对象：Relational"
+subtitle: "在拿到数据库凭据前，先审查表、键和完整性关系"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Relational}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"),
+            identical(digest$adapter$metadata$conformance_claim, "none"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：数据仓库评审不能先连生产库
+
+你要评审一个临床随访数据仓库的 schema。评审人需要确认“访视是否通过患者键关联、
+结果表是否通过样本键关联”，但还没有必要取得生产 DBI connection，更不能把患者编号
+和记录值放进 Digest。此时目标是关系图，不是查询结果。
+
+## 声明 schema，而不是装载表
+
+```{r create-schema}
+warehouse_schema <- cap_db_schema(
+  tables = list(
+    subjects = c(subject_key = "integer", site_code = "text"),
+    visits = c(visit_key = "integer", subject_key = "integer", visit_date = "date"),
+    assays = c(assay_key = "integer", visit_key = "integer", result = "double")
+  ),
+  primary_keys = list(
+    subjects = "subject_key",
+    visits = "visit_key",
+    assays = "assay_key"
+  ),
+  foreign_keys = list(
+    list(from_table = "visits", from_columns = "subject_key",
+         to_table = "subjects", to_columns = "subject_key"),
+    list(from_table = "assays", from_columns = "visit_key",
+         to_table = "visits", to_columns = "visit_key")
+  )
+)
+
+data.frame(
+  relation = c("visits -> subjects", "assays -> visits"),
+  purpose = c("retain subject identity boundary", "retain visit-to-assay alignment")
+)
+```
+
+`cap_db_schema()` 是内存中的声明构造器；它不接受连接、不检查行、不打开网络，也不
+验证数据库里的实际 referential integrity。
+
+## 生成关系证据
+
+```{r relational-digest}
+schema_digest <- assert_descriptor(
+  cap_digest(warehouse_schema, adapter = cap_relational_adapter(), budget = 900,
+             label = "clinical warehouse schema"),
+  "relational"
+)
+
+stopifnot(
+  grepl("subject_key", schema_digest$text, fixed = TRUE),
+  grepl("foreign", schema_digest$text, ignore.case = TRUE),
+  grepl('"table_values_included": false', schema_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  disclosed = c("table names", "column/type schema", "PK/FK declarations", "row values"),
+  result = c(TRUE, TRUE, TRUE, FALSE)
+)
+```
+
+列名和 key 定义属于 metadata，所以它们仍可能暴露业务语义。不要把真实 subject ID、
+邮箱或 access token 写进 schema 名称。若拿到 `dm` 或 `MultiAssayExperiment`，显式
+选择 relational adapter 仍然只保留关系与对齐 metadata；它不是一次 join。
+
+## 连续 Agent 会话：先问“有哪些实体”，再问“关系是否足够”
+
+在真实数据仓库里，agent 不应第一轮就获得 DBI connection。下面模拟一个 agent 先看
+table 数量，再请求 key/schema；Gate 会把请求解释为“当前 descriptor 不支持隐式
+follow-up”，宿主随后按用户授权重新生成完整 schema Digest。
+
+```{r relational-agent-turn-0}
+agent_digest_0 <- cap_digest(
+  warehouse_schema,
+  question = "先判断这个仓库包含多少实体，不连接生产数据库。",
+  adapter = cap_relational_adapter(),
+  budget = 150,
+  policy = agent_policy,
+  label = "agent turn 0: relational overview"
+)
+stopifnot(identical(selected_field_ids(agent_digest_0),
+                    "f1:relational@overview#compact"))
+
+agent_response_1 <- list(
+  claims = list(list(
+    id = "entities",
+    text = "这是一个 relational schema；我需要 key 定义才能判断 join 风险。",
+    evidence = list("f1:relational@overview#compact")
+  )),
+  evidence = list(), warnings = list(),
+  requests = list(list(
+    fieldId = "f1:relational@structure#compact",
+    level = 1L, budget = 240L,
+    reason = "请给出表、列和主外键的有界 schema。"
+  ))
+)
+turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+stopifnot(turn_1$validation$ok,
+          identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+```
+
+```{r relational-agent-turn-2}
+agent_digest_2 <- cap_digest(
+  warehouse_schema,
+  question = "用户批准查看声明式关系，但仍不允许连接或查询数据库。",
+  adapter = cap_relational_adapter(), budget = 800, policy = agent_policy,
+  label = "agent turn 2: relational keys"
+)
+agent_response_2 <- list(
+  claims = list(list(
+    id = "join-safety",
+    text = "可以审查 subjects、visits 和 assays 的 key 链；没有任何行值或连接。",
+    evidence = list("f1:relational@structure#compact",
+                    "f1:relational@semantics#compact")
+  )),
+  evidence = list(), warnings = list(), requests = list()
+)
+turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+stopifnot(turn_2$validation$ok,
+          identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+data.frame(
+  turn = c(0L, 1L, 2L),
+  agent_action = c("count entities", "request PK/FK", "review join boundary"),
+  capR_decision = c("overview selected", "not_available", "fresh schema selected"),
+  database_contacted = FALSE
+)
+```
+
+这不是把 request 伪装成 SQL 权限。若后续 agent 真要读取一行数据，应换成有明确
+`remote_query` policy、预算和 Patch contract 的流程；本篇的 relational adapter 永远
+只描述关系声明。
+
+## 情景决策
+
+| 需求 | 做法 |
+| --- | --- |
+| 先审查实体和键 | `cap_db_schema()` + `cap_relational_adapter()` |
+| 读取真实行或执行 SQL | 单独设计 query policy，不使用此 metadata-only adapter |
+| 需要 assay/sample-map 对齐 | 保留 relational 关系，不把它摊平成一张表 |
+| 仅需普通表 shape | 使用 stable table adapter |
+
+更多边界见[复杂对象边界矩阵](../docs/adapters/complex-object-families.md)。

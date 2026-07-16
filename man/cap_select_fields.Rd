@@ -9,7 +9,9 @@ cap_select_fields(
   budget = 800L,
   question = NULL,
   policy = cap_policy(),
-  include_interactive = FALSE
+  include_interactive = FALSE,
+  planner = NULL,
+  tokenizer_id = NULL
 )
 }
 \arguments{
@@ -22,6 +24,11 @@ cap_select_fields(
 \item{policy}{Host policy.}
 
 \item{include_interactive}{Internal switch used only after gate approval.}
+
+\item{planner}{Optional planner id or \code{capr_planner}; \code{NULL} keeps the
+built-in greedy value/cost strategy byte-identical.}
+
+\item{tokenizer_id}{Optional tokenizer id stamped into the plan.}
 }
 \value{
 A complete selected/rejected plan.

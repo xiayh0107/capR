@@ -1,18 +1,90 @@
 capr_fallback_high_risk <- function(x) {
-  is.environment(x) ||
+  high_risk_classes <- c(
+    "tbl_lazy", "tbl_sql", "Dataset", "ArrowObject", "R6",
+    "ggplot", "patchwork", "grob", "gtable", "htmlwidget",
+    "DelayedArray", "DelayedMatrix", "HDF5Array", "HDF5Matrix",
+    "DBIConnection", "SummarizedExperiment", "SingleCellExperiment",
+    "MultiAssayExperiment", "Seurat", "phyloseq", "GRanges", "stars",
+    "sf", "sfc", "igraph", "tbl_graph", "treedata", "recipe",
+    "workflow", "model_fit", "merMod", "xml_document", "xml_node"
+  )
+  # Hosts may only EXTEND the refusal list (fail-closed); an option can
+  # never remove a built-in high-risk class.
+  extra <- getOption("capr.extra_high_risk_classes", character())
+  if (!is.character(extra) || anyNA(extra)) {
+    capr_abort(
+      "capr_policy_invalid",
+      "`capr.extra_high_risk_classes` must be a character vector",
+      option = "capr.extra_high_risk_classes"
+    )
+  }
+  high_risk_classes <- c(high_risk_classes, extra)
+  isS4(x) ||
+    is.environment(x) ||
     inherits(x, "connection") ||
+    any(inherits(x, high_risk_classes)) ||
     typeof(x) %in% c("externalptr", "promise", "weakref")
 }
 
 capr_bounded_names <- function(x, limit = 50L) {
-  values <- names(x)
-  if (is.null(values)) return(character())
-  values <- enc2utf8(values)
-  if (length(values) > limit) {
-    c(values[seq_len(limit)], sprintf("... %d more", length(values) - limit))
-  } else {
-    values
+  values <- attr(x, "names", exact = TRUE)
+  if (is.object(values) && !isS4(values)) {
+    values <- tryCatch(unclass(values), error = function(e) NULL)
   }
+  if (!is.character(values)) return(character())
+  total <- length(values)
+  count <- min(total, limit)
+  kept <- capr_descriptor_bound_string(values[seq_len(count)])
+  if (total > count) {
+    kept <- c(kept, sprintf("... %d more", total - count))
+  }
+  kept
+}
+
+capr_fallback_snapshot <- function(x, include_attributes = FALSE) {
+  if (capr_fallback_high_risk(x)) {
+    capr_abort(
+      "capr_fallback_disallowed",
+      "high-risk objects cannot be structurally traversed",
+      type = typeof(x),
+      classes = class(x)
+    )
+  }
+  raw <- if (is.object(x)) {
+    tryCatch(unclass(x), error = function(e) e)
+  } else {
+    x
+  }
+  if (inherits(raw, "condition") || isS4(raw) || is.environment(raw) ||
+      typeof(raw) %in% c("externalptr", "promise", "weakref")) {
+    capr_abort(
+      "capr_fallback_disallowed",
+      "the object cannot be stripped to a method-free structural host",
+      type = typeof(x),
+      classes = class(x)
+    )
+  }
+  classes <- unname(class(x))
+  class_count <- min(length(classes), 20L)
+  dimensions <- attr(raw, "dim", exact = TRUE)
+  if (is.object(dimensions) && !isS4(dimensions)) {
+    dimensions <- tryCatch(unclass(dimensions), error = function(e) NULL)
+  }
+  if (!is.numeric(dimensions)) dimensions <- numeric()
+  dimension_count <- min(length(dimensions), 20L)
+  snapshot <- list(
+    type = typeof(x),
+    classes = capr_descriptor_bound_string(
+      classes[seq_len(class_count)]
+    ),
+    length = as.integer(length(raw)),
+    dim = unname(as.integer(dimensions[seq_len(dimension_count)])),
+    names = capr_bounded_names(raw)
+  )
+  if (include_attributes) {
+    snapshot$attributes <- capr_bounded_names(attributes(x), 25L)
+  }
+  snapshot
 }
 
 #' Construct the bounded structural fallback adapter
@@ -24,38 +96,27 @@ capr_bounded_names <- function(x, limit = 50L) {
 #' @export
 cap_structural_adapter <- function() {
   source_ref <- function(x, context = list()) {
-    if (capr_fallback_high_risk(x)) {
-      capr_abort(
-        "capr_fallback_disallowed",
-        "high-risk objects cannot be structurally traversed",
-        type = typeof(x),
-        classes = class(x)
-      )
-    }
+    snapshot <- capr_fallback_snapshot(x)
     list(
-      schema = "cap.source_ref.v1",
+      schema = capr_schema("source_ref"),
       sourceType = "r_object",
       uri = sprintf(
         "r-host://structural/%s",
-        capr_sha256(paste(typeof(x), length(x), paste(class(x), collapse = "/")))
+        capr_sha256(capr_canonical_json(snapshot))
       ),
       label = "bounded R object structure",
-      identity = list(type = typeof(x), classes = unname(class(x))),
+      identity = list(type = typeof(x), classes = snapshot$classes),
       trust = "host"
     )
   }
   field_catalog <- function(x, context = list()) {
     list(
-      schema = "cap.field_catalog.v1",
+      schema = capr_schema("field_catalog"),
       catalogId = "org.capr.structural_fallback.v1",
       sourceType = "r_object",
-      versions = list(
-        cap = "2026-07-05-draft",
-        fields = "f1",
-        catalog = "v1"
-      ),
+      versions = capr_catalog_versions(),
       fields = list(list(
-        schema = "cap.field.v1",
+        schema = capr_schema("field"),
         id = "f1:r_object@capr_structure#base",
         label = "R object structure",
         description = "Bounded shallow structure of an R object.",
@@ -89,13 +150,7 @@ cap_structural_adapter <- function() {
         caveat = "high_risk_source"
       ))
     }
-    payload <- list(
-      type = typeof(x),
-      classes = unname(class(x)),
-      length = length(x),
-      dim = unname(dim(x)),
-      names = capr_bounded_names(x)
-    )
+    payload <- capr_fallback_snapshot(x)
     list(
       available = TRUE,
       algorithm = "capr-structural-v1",
@@ -103,21 +158,7 @@ cap_structural_adapter <- function() {
     )
   }
   extractor <- function(x, level = "base", context = list()) {
-    if (capr_fallback_high_risk(x)) {
-      capr_abort(
-        "capr_fallback_disallowed",
-        "high-risk fallback extraction is denied",
-        type = typeof(x)
-      )
-    }
-    list(
-      type = typeof(x),
-      classes = unname(class(x)),
-      length = length(x),
-      dim = unname(dim(x)),
-      names = capr_bounded_names(x),
-      attributes = capr_bounded_names(attributes(x), 25L)
-    )
+    capr_fallback_snapshot(x, include_attributes = TRUE)
   }
   renderer <- function(value, field = NULL, context = list()) {
     paste(

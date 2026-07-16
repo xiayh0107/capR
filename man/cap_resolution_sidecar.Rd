@@ -4,12 +4,20 @@
 \alias{cap_resolution_sidecar}
 \title{Build adapter resolution provenance}
 \usage{
-cap_resolution_sidecar(adapter, fingerprint_algorithm = "unspecified")
+cap_resolution_sidecar(
+  adapter,
+  fingerprint_algorithm = "unspecified",
+  strategies = NULL
+)
 }
 \arguments{
 \item{adapter}{A resolved adapter.}
 
 \item{fingerprint_algorithm}{Named fingerprint algorithm.}
+
+\item{strategies}{Optional non-default strategy stamp (planner/tokenizer
+ids and versions). Omitted entirely for built-in strategies so default
+sidecars stay byte-identical.}
 }
 \value{
 A serializable \code{resolution.capr.json} sidecar representation.

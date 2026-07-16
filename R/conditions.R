@@ -3,7 +3,8 @@
   "capr_registry_conflict", "capr_duplicate_field_id", "capr_contract_unbound",
   "capr_adapter_pin_mismatch", "capr_fallback_disallowed", "capr_extraction_error",
   "capr_renderer_error", "capr_sidecar_invalid", "capr_policy_invalid",
-  "capr_artifact_invalid", "capr_text_invalid"
+  "capr_artifact_invalid", "capr_text_invalid", "capr_agent_invalid",
+  "capr_dependency_missing", "capr_planner_invalid", "capr_tokenizer_invalid"
 )
 
 #' Construct a structured capR condition

@@ -211,7 +211,7 @@ cap_registry_snapshot <- function(registry = cap_registry()) {
   capr_validate_registry(registry)
   structure(
     list(
-      schema = "capr.registry_snapshot.v1",
+      schema = capr_schema("registry_snapshot"),
       generation = registry$generation,
       entries = registry$entries
     ),
@@ -225,7 +225,7 @@ cap_registry_snapshot <- function(registry = cap_registry()) {
 cap_registry_restore <- function(snapshot, registry = cap_registry()) {
   capr_validate_registry(registry)
   if (!inherits(snapshot, "capr_registry_snapshot") ||
-      !identical(snapshot$schema, "capr.registry_snapshot.v1")) {
+      !identical(snapshot$schema, capr_schema("registry_snapshot"))) {
     capr_abort("capr_registry_conflict", "invalid registry snapshot")
   }
   registry$entries <- snapshot$entries
@@ -246,7 +246,7 @@ capr_make_candidate <- function(entry, class_index, mode) {
 
 capr_attach_resolution <- function(adapter, selected, rejected, matched_class = NULL) {
   attr(adapter, "capr_resolution") <- list(
-    schema = "capr.resolution_diagnostics.v1",
+    schema = capr_schema("resolution_diagnostics"),
     selected = selected,
     rejected = rejected,
     matched_class = matched_class
@@ -261,7 +261,7 @@ capr_attach_resolution <- function(adapter, selected, rejected, matched_class = 
 cap_resolution_diagnostics <- function(adapter) {
   cap_validate_adapter(adapter)
   attr(adapter, "capr_resolution") %||% list(
-    schema = "capr.resolution_diagnostics.v1",
+    schema = capr_schema("resolution_diagnostics"),
     selected = list(mode = "unresolved"),
     rejected = list(),
     matched_class = NULL

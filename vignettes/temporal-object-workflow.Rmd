@@ -1,0 +1,177 @@
+---
+title: "capR 情景化复杂对象：Temporal"
+subtitle: "传感器交接时先确认时间轴契约，再讨论观测值"
+author: "capR contributors"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{capR 情景化复杂对象：Temporal}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 110)
+library(capR)
+
+assert_descriptor <- function(digest, source_type) {
+  selected <- vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+  expected <- paste0("f1:", source_type, "@",
+                     c("overview", "structure", "semantics"), "#compact")
+  stopifnot(identical(digest$source$sourceType, source_type),
+            identical(sort(selected), sort(expected)),
+            identical(digest$adapter$metadata$maturity, "experimental"))
+  digest
+}
+
+agent_policy <- cap_policy(
+  max_budget = 800,
+  max_followup_budget = 300,
+  allow_exec = "local_cheap",
+  allow_followup = TRUE
+)
+
+selected_field_ids <- function(digest) {
+  vapply(
+    Filter(function(field) isTRUE(field$selected), digest$manifest$fields),
+    `[[`, character(1), "fieldId"
+  )
+}
+
+run_agent_turn <- function(digest, response) {
+  validation <- cap_validate_response(digest, response, policy = agent_policy)
+  gate <- cap_gate(digest, validation, policy = agent_policy)
+  list(validation = validation, gate = gate)
+}
+```
+
+## 情景：工厂把季度传感器交给统计团队
+
+统计团队刚接到一条设备传感器序列。第一轮审查只需要判断它是不是四季度一组、共有
+多少个观测、是否可以按 regular time series 处理；原始读数仍受合同和隐私策略约束。
+如果时间轴契约不明确，后续的季节分解和窗口聚合都可能错位。
+
+## 用 `ts` 表达采样契约
+
+```{r create-series}
+sensor_series <- stats::ts(
+  c(12.7, 12.9, 13.1, 13.0, 13.5, 13.8, 14.0, 14.2),
+  start = c(2025, 1),
+  frequency = 4
+)
+
+data.frame(
+  observations = length(sensor_series),
+  series = if (is.null(dim(sensor_series))) 1L else ncol(sensor_series),
+  frequency = frequency(sensor_series),
+  local_value_previewed = FALSE
+)
+```
+
+## 披露时间语义，不披露读数
+
+```{r temporal-digest}
+temporal_digest <- assert_descriptor(
+  cap_digest(sensor_series, adapter = cap_temporal_adapter(), budget = 800,
+             label = "quarterly sensor series"),
+  "temporal"
+)
+
+stopifnot(
+  grepl('"frequency": 4', temporal_digest$text, fixed = TRUE),
+  grepl('"regular": true', temporal_digest$text, fixed = TRUE),
+  grepl('"payload_values_included": false', temporal_digest$text, fixed = TRUE),
+  !grepl("12.7", temporal_digest$text, fixed = TRUE)
+)
+
+data.frame(
+  evidence = c("observation count", "frequency", "regularity", "index values", "payload values"),
+  included = c(TRUE, TRUE, TRUE, FALSE, FALSE)
+)
+```
+
+对 `zoo`、`xts` 和 `tbl_ts`，adapter 会保留 host、series/column schema 和维度，但不会
+从 index 值自行推断 regularity；未知就明确写成未知，而不是猜测。需要真实时间戳或
+窗口内观测值时，应走另一个有预算的披露流程。
+
+## 连续 Agent 会话：把“频率问题”和“异常值问题”分开
+
+一个时间序列 agent 通常会连续问两件不同的事：先问采样契约，再问具体异常。capR
+允许第一问基于 overview 开始，但不会因为第二问就自动把 index 或观测值放进上下文。
+
+```{r temporal-agent-turn-0}
+agent_digest_0 <- cap_digest(
+  sensor_series,
+  question = "先判断这条传感器是否有固定季度频率。",
+  adapter = cap_temporal_adapter(), budget = 150, policy = agent_policy,
+  label = "agent turn 0: temporal overview"
+)
+stopifnot(identical(selected_field_ids(agent_digest_0),
+                    "f1:temporal@overview#compact"))
+
+agent_response_1 <- list(
+  claims = list(list(
+    id = "series-size",
+    text = "这是一个时间序列；还需要 frequency/regularity 才能选择窗口算法。",
+    evidence = list("f1:temporal@overview#compact")
+  )),
+  evidence = list(), warnings = list(),
+  requests = list(list(
+    fieldId = "f1:temporal@semantics#compact",
+    level = 1L, budget = 220L,
+    reason = "请提供 frequency、regularity 和 payload omission 状态。"
+  ))
+)
+turn_1 <- run_agent_turn(agent_digest_0, agent_response_1)
+stopifnot(turn_1$validation$ok,
+          identical(turn_1$gate$requests[[1]]$decision, "not_available"))
+```
+
+```{r temporal-agent-turn-2}
+agent_digest_2 <- cap_digest(
+  sensor_series,
+  question = "用户批准时间语义，但不批准 index 或观测值。",
+  adapter = cap_temporal_adapter(), budget = 800, policy = agent_policy,
+  label = "agent turn 2: temporal cadence"
+)
+agent_response_2 <- list(
+  claims = list(list(
+    id = "cadence",
+    text = "可以按固定季度频率处理；具体哪一期异常仍需另行授权。",
+    evidence = list("f1:temporal@structure#compact",
+                    "f1:temporal@semantics#compact")
+  )),
+  evidence = list(), warnings = list(), requests = list()
+)
+turn_2 <- run_agent_turn(agent_digest_2, agent_response_2)
+stopifnot(turn_2$validation$ok,
+          identical(agent_digest_0$fingerprint, agent_digest_2$fingerprint))
+
+data.frame(
+  speaker = c("agent", "capR Gate", "user/host", "agent"),
+  decision = c("ask cadence", "deny implicit index follow-up", "approve time metadata", "choose quarterly window"),
+  observation_values_read = FALSE
+)
+```
+
+因此 agent 可以继续对话，但不能把“请求某一期读数”说成“已经发现异常”。需要值级
+分析时，应另建受控的 temporal sample adapter，而不是放宽当前 metadata contract。
+
+## 情景决策
+
+| 问题 | Temporal Digest 的回答 |
+| --- | --- |
+| 能否按固定频率分组 | base `ts` 的 `frequency`/`regular` |
+| 一共有多少观测 | observation/series count |
+| 哪一天发生了异常 | 不能，index 和 payload 都不披露 |
+| irregular index 是否真的规则 | 非 `ts` host 保持 unknown |
+
+Temporal 与 Array 的区别在于它保留 observation 与时间索引之间的语义；完整选择地图
+见[复杂对象全景](complex-object-workflow.Rmd)。
