@@ -8,7 +8,7 @@
 # returned to the model as structured error payloads (so a tool loop can
 # self-correct); session invariant violations keep failing closed.
 
-capr_require_suggests <- function(package, caller) {
+capr_require_suggests <- function(package, caller, min_version = NULL) {
   if (!requireNamespace(package, quietly = TRUE)) {
     capr_abort(
       "capr_dependency_missing",
@@ -17,6 +17,19 @@ capr_require_suggests <- function(package, caller) {
         caller, package
       ),
       package = package
+    )
+  }
+  if (!is.null(min_version) &&
+      utils::packageVersion(package) < package_version(min_version)) {
+    capr_abort(
+      "capr_dependency_missing",
+      sprintf(
+        "%s requires {%s} >= %s; version %s is installed",
+        caller, package, min_version,
+        as.character(utils::packageVersion(package))
+      ),
+      package = package,
+      minimum_version = min_version
     )
   }
   invisible(TRUE)

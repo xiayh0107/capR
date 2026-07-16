@@ -243,7 +243,13 @@ capr_aisdk_default_tokenizer_id <- function(model) {
 #' @return A `capr_tokenizer` with `provider = "aisdk"`.
 #' @export
 cap_aisdk_tokenizer <- function(model, id = NULL, version = "1.0.0") {
-  capr_require_suggests("aisdk", "cap_aisdk_tokenizer()")
+  # count_tokens() is an aisdk 1.5.0 API; CRAN's 1.4.x has no export, so the
+  # symbol is resolved dynamically after the version gate (a static
+  # aisdk::count_tokens reference would trip R CMD check against 1.4.x).
+  capr_require_suggests(
+    "aisdk", "cap_aisdk_tokenizer()", min_version = "1.5.0"
+  )
+  count_tokens <- getExportedValue("aisdk", "count_tokens")
   model <- capr_aisdk_model(
     model, "capr_tokenizer_invalid", "cap_aisdk_tokenizer()"
   )
@@ -252,7 +258,7 @@ cap_aisdk_tokenizer <- function(model, id = NULL, version = "1.0.0") {
     version = version,
     provider = "aisdk",
     count = function(rendered, field_id) {
-      as.integer(aisdk::count_tokens(model, prompt = rendered))
+      as.integer(count_tokens(model, prompt = rendered))
     }
   )
 }
@@ -340,7 +346,9 @@ capr_aisdk_contract_schema <- function() {
 #' @export
 cap_aisdk_ask <- function(model, mode = c("tool", "json"),
                           max_retries = 1L, ...) {
-  capr_require_suggests("aisdk", "cap_aisdk_ask()")
+  # generate_object()'s list-preserving parsing is aisdk 1.5.0 behavior;
+  # 1.4.x simplifies vectors and retries differently, so gate on version.
+  capr_require_suggests("aisdk", "cap_aisdk_ask()", min_version = "1.5.0")
   model <- capr_aisdk_model(model, "capr_agent_invalid", "cap_aisdk_ask()")
   mode <- match.arg(mode)
   max_retries <- capr_assert_count(

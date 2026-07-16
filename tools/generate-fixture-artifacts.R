@@ -40,12 +40,18 @@ table <- as.data.frame(
 )
 attr(table, "capr_label") <- source$label
 attr(table, "capr_uri") <- "fixture://basic-table/source.json"
-attr(table, "capr_fixture_fingerprint") <- policy_fixture$fingerprint
 attr(table, "capr_fixture_sample_rows") <- source$sampleRows
 attr(table, "capr_digest_id") <- "cap-digest-basic-table"
 
 policy <- cap_policy(max_budget = 500, max_followup_budget = 340)
-digest <- cap_digest(table, budget = 500, policy = policy)
+# The fixture fingerprint must flow through the call context: the adapter
+# deliberately ignores object attributes for fingerprints (spoofing guard).
+digest <- cap_digest(
+  table,
+  budget = 500,
+  policy = policy,
+  fingerprint = policy_fixture$fingerprint
+)
 cap_write_artifacts(digest, file.path(output, "digest"))
 validation <- cap_validate_response(
   digest,
@@ -62,7 +68,13 @@ writeLines(
 cap_write_artifacts(validation, file.path(output, "validation"))
 gate <- cap_gate(digest, validation, policy = policy)
 cap_write_artifacts(gate, file.path(output, "gate"))
-patch <- cap_patch(digest, gate, table, policy = policy)
+patch <- cap_patch(
+  digest,
+  gate,
+  table,
+  policy = policy,
+  fingerprint = policy_fixture$fingerprint
+)
 cap_write_artifacts(patch, file.path(output, "patch"))
 pack_report <- cap_pack_conformance_report(cap_load_pack())
 cap_write_artifacts(

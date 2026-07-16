@@ -140,7 +140,7 @@ aisdk_contract_tool_call <- function(object) {
 }
 
 test_that("cap_aisdk_tokenizer derives a valid id and counts via aisdk", {
-  skip_if_not_installed("aisdk")
+  skip_if_not_installed("aisdk", "1.5.0")
   tokenizer <- cap_aisdk_tokenizer(aisdk_mock_model())
   expect_s3_class(tokenizer, "capr_tokenizer")
   expect_identical(tokenizer$id, "aisdk-mock-model-v1")
@@ -155,7 +155,7 @@ test_that("cap_aisdk_tokenizer derives a valid id and counts via aisdk", {
 })
 
 test_that("cap_aisdk_tokenizer honors id overrides and validates input", {
-  skip_if_not_installed("aisdk")
+  skip_if_not_installed("aisdk", "1.5.0")
   custom <- cap_aisdk_tokenizer(
     aisdk_mock_model(), id = "anthropic-exact-v2", version = "2.1.0"
   )
@@ -178,7 +178,7 @@ test_that("cap_aisdk_tokenizer honors id overrides and validates input", {
 })
 
 test_that("cap_digest stamps the aisdk tokenizer into budget accounting", {
-  skip_if_not_installed("aisdk")
+  skip_if_not_installed("aisdk", "1.5.0")
   digest <- cap_digest(
     fixture_table("basic-table"),
     budget = 5000,
@@ -194,7 +194,7 @@ test_that("cap_digest stamps the aisdk tokenizer into budget accounting", {
 })
 
 test_that("cap_aisdk_ask builds a schema-constrained ask function", {
-  skip_if_not_installed("aisdk")
+  skip_if_not_installed("aisdk", "1.5.0")
   ask <- cap_aisdk_ask(aisdk_mock_model())
   expect_true(is.function(ask))
   expect_named(formals(ask), "prompt")
@@ -207,7 +207,7 @@ test_that("cap_aisdk_ask builds a schema-constrained ask function", {
 })
 
 test_that("cap_aisdk_ask drives cap_agent_run through canned tool calls", {
-  skip_if_not_installed("aisdk")
+  skip_if_not_installed("aisdk", "1.5.0")
   model <- aisdk_mock_model(list(
     aisdk_contract_tool_call(agent_request_response()),
     aisdk_contract_tool_call(
@@ -226,7 +226,7 @@ test_that("cap_aisdk_ask drives cap_agent_run through canned tool calls", {
 })
 
 test_that("cap_aisdk_ask json mode parses the model text as the contract", {
-  skip_if_not_installed("aisdk")
+  skip_if_not_installed("aisdk", "1.5.0")
   payload <- agent_claims_response()
   model <- aisdk_mock_model(list(list(
     text = as.character(jsonlite::toJSON(payload, auto_unbox = TRUE)),
@@ -242,7 +242,7 @@ test_that("cap_aisdk_ask json mode parses the model text as the contract", {
 })
 
 test_that("cap_aisdk_ask returns schema-invalid objects for capR to judge", {
-  skip_if_not_installed("aisdk")
+  skip_if_not_installed("aisdk", "1.5.0")
   broken <- list(claims = list(list(id = "claim-1")))
   model <- aisdk_mock_model(list(aisdk_contract_tool_call(broken)))
   ask <- cap_aisdk_ask(model, mode = "tool", max_retries = 0L)
